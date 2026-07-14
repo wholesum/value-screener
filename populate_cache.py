@@ -112,6 +112,40 @@ SECTOR_ETFS = {
     "Mortgage REIT ETF (REM)": "REM",
     "Timber ETF (WOOD)": "WOOD",            # already exists
     "Global Timber (CUT)": "CUT",           # already exists
+
+    # ---- Additional Country ETFs (from your list) ----
+"UK (EWU)": "EWU",
+"Switzerland (EWL)": "EWL",
+"Canada (EWC)": "EWC",
+"Australia (EWA)": "EWA",
+"New Zealand (ENZL)": "ENZL",
+"Sweden (EWD)": "EWD",
+"Norway (ENOR)": "ENOR",
+"Denmark (EDEN)": "EDEN",
+"Hong Kong (EWH)": "EWH",
+"Singapore (EWS)": "EWS",
+"South Korea (EWY)": "EWY",
+"Taiwan (EWT)": "EWT",
+"Indonesia (EIDO)": "EIDO",
+"Thailand (THD)": "THD",
+"Malaysia (EWM)": "EWM",
+"Philippines (EPHE)": "EPHE",
+"Vietnam (VNM)": "VNM",
+"Poland (EPOL)": "EPOL",
+"Mexico (EWW)": "EWW",
+"Argentina (ARGT)": "ARGT",
+"Chile (ECH)": "ECH",
+"Peru (EPU)": "EPU",
+"Turkey (TUR)": "TUR",
+"Saudi Arabia (KSA)": "KSA",
+"South Africa (EZA)": "EZA",
+"UAE (UAE)": "UAE",
+"Qatar (QAT)": "QAT",
+"Kuwait (KWT)": "KWT",
+"Israel (EIS)": "EIS",
+"Eurozone (EZU)": "EZU",      # broad Eurozone, complement to VGK
+"China A (KBA)": "KBA",       # alternative China exposure
+"China (CNYA)": "CNYA",       # iShares China A
 }
 
 CURRENCY_NAMES = {
