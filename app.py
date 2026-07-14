@@ -111,6 +111,7 @@ def get_gold_ratio(ticker):
 # LISTS (sectors, currencies, commodities) – unchanged
 # ------------------------------------------------------------
 SECTOR_ETFS = {
+    # ---- Existing sectors (unchanged) ----
     "Energy (S&P)": "XLE",
     "Oil Exploration (E&P)": "XOP",
     "Oil Services": "OIH",
@@ -185,7 +186,20 @@ SECTOR_ETFS = {
     "Materials (S&P)": "XLB",
     "Global Materials": "MXI",
     "Timber": "WOOD",
-    "Timber & Forestry": "CUT"
+    "Timber & Forestry": "CUT",
+
+    # ---- New: Foreign Country ETFs ----
+    "Japan (EWJ)": "EWJ",
+    "China (FXI)": "FXI",
+    "Brazil (EWZ)": "EWZ",
+    "India (INDA)": "INDA",
+    "Emerging Markets (EEM)": "EEM",
+    "Developed ex-US (EFA)": "EFA",
+    "Europe (VGK)": "VGK",
+    "Asia-Pacific (VPL)": "VPL",
+
+    # ---- New: Real Estate / Homebuilders ----
+    "Homebuilders": "ITB"
 }
 
 CURRENCY_NAMES = {
@@ -250,17 +264,29 @@ CURRENCY_NAMES = {
 CURRENCY_TICKERS = {code: code + "USD=X" if code != "USD" else "USDUSD=X" for code in CURRENCY_NAMES}
 
 COMMODITY_TICKERS = {
+    # Precious metals
     "Gold": "GC=F",
     "Silver": "SI=F",
     "Platinum": "PL=F",
     "Palladium": "PA=F",
+
+    # Base / industrial metals (re‑added)
     "Copper": "HG=F",
+    "Aluminum": "ALI=F",
+    "Nickel": "NICKEL=F",
+    "Zinc": "ZINC=F",
+    "Lead": "LEAD=F",
+    "Tin": "TIN=F",
+
+    # Energy
     "WTI Crude Oil": "CL=F",
     "Brent Crude": "BZ=F",
     "Natural Gas": "NG=F",
     "Heating Oil": "HO=F",
     "RBOB Gasoline": "RB=F",
     "Propane": "B0=F",
+
+    # Grains
     "Corn": "ZC=F",
     "Wheat": "ZW=F",
     "Kansas Wheat": "KE=F",
@@ -269,11 +295,15 @@ COMMODITY_TICKERS = {
     "Soybean Oil": "ZL=F",
     "Oats": "ZO=F",
     "Rice": "ZR=F",
+
+    # Softs
     "Coffee": "KC=F",
     "Sugar #11": "SB=F",
     "Cocoa": "CC=F",
     "Cotton": "CT=F",
     "Orange Juice": "OJ=F",
+
+    # Livestock & dairy
     "Lumber": "LBR=F",
     "Live Cattle": "LE=F",
     "Feeder Cattle": "GF=F",
@@ -284,6 +314,7 @@ COMMODITY_TICKERS = {
 }
 
 CONVERGENCE_MAP = {
+    # ---- Energy ----
     "Energy (S&P)": ("WTI Crude Oil", "CAD"),
     "Oil Exploration (E&P)": ("WTI Crude Oil", "CAD"),
     "Oil Services": ("WTI Crude Oil", "CAD"),
@@ -291,6 +322,9 @@ CONVERGENCE_MAP = {
     "Midstream Pipelines": ("Natural Gas", "CAD"),
     "Natural Gas Producers": ("Natural Gas", "CAD"),
     "Refiners": ("WTI Crude Oil", "CAD"),
+    "Uranium": (None, None),  # no direct commodity mapping
+
+    # ---- Metals & Mining ----
     "Metals & Mining": ("Copper", "AUD"),
     "Global Miners": ("Copper", "AUD"),
     "Copper Miners": ("Copper", "AUD"),
@@ -299,18 +333,96 @@ CONVERGENCE_MAP = {
     "Gold Miners": ("Gold", "AUD"),
     "Junior Gold Miners": ("Gold", "AUD"),
     "Junior Gold Explorers": ("Gold", "AUD"),
+    "Rare Earths": (None, None),
+    "Lithium": (None, None),
     "Battery Materials": ("Copper", "AUD"),
+    "Steel": (None, None),
+
+    # ---- Agriculture ----
     "Agriculture/Fertilizer": ("Corn", "USD"),
+
+    # ---- Technology ----
+    "Technology (S&P)": (None, "USD"),
+    "Semiconductors (SMH)": (None, "USD"),
+    "Semiconductors (SOXX)": (None, "USD"),
+    "Software (IGV)": (None, "USD"),
+    "Cybersecurity (HACK)": (None, "USD"),
+    "Cybersecurity (BUG)": (None, "USD"),
+    "Cloud Computing (CLOU)": (None, "USD"),
+    "Cloud (SKYY)": (None, "USD"),
+    "Robotics (BOTZ)": (None, "USD"),
+    "Robotics (ROBO)": (None, "USD"),
+    "Internet (FDN)": (None, "USD"),
+    "Software (XSW)": (None, "USD"),
+    "Cybersecurity (CIBR)": (None, "USD"),
+
+    # ---- Financials ----
+    "Financials (S&P)": (None, "USD"),
+    "Regional Banks": (None, "USD"),
+    "Banks": (None, "USD"),
+    "Insurance": (None, "USD"),
+    "Brokers": (None, "USD"),
+    "Financial Services": (None, "USD"),
+
+    # ---- Healthcare ----
+    "Healthcare (S&P)": (None, "USD"),
+    "Biotech (equal weight)": (None, "USD"),
+    "Biotech (IBB)": (None, "USD"),
+    "Medical Devices": (None, "USD"),
+    "Pharmaceuticals": (None, "USD"),
+
+    # ---- Industrials ----
+    "Industrials (S&P)": (None, "USD"),
     "Infrastructure": ("Copper", "USD"),
+    "Aerospace & Defense": (None, "USD"),
+    "Aerospace (equal weight)": (None, "USD"),
+    "Defense (PPA)": (None, "USD"),
     "Transportation": ("WTI Crude Oil", "USD"),
     "Airlines": ("WTI Crude Oil", "USD"),
+    "Autos": (None, "USD"),
+
+    # ---- Consumer ----
+    "Consumer Discretionary (S&P)": (None, "USD"),
+    "Consumer Staples (S&P)": (None, "USD"),
+    "Retail": (None, "USD"),
+    "Online Retail": (None, "USD"),
+    "Leisure & Entertainment": (None, "USD"),
+    "Hotels": (None, "USD"),
+    "Travel": (None, "USD"),
+
+    # ---- Real Estate ----
+    "Real Estate (S&P)": (None, "USD"),
+    "REITs (VNQ)": (None, "USD"),
+    "U.S. REITs": (None, "USD"),
+    "Residential REITs": (None, "USD"),
+    "Homebuilders": ("Lumber", "USD"),   # new
+
+    # ---- Communications ----
+    "Communication Services": (None, "USD"),
+    "Telecom & Media": (None, "USD"),
+    "Esports": (None, "USD"),
+    "Video Gaming": (None, "USD"),
+
+    # ---- Utilities ----
     "Utilities (S&P)": ("Natural Gas", "USD"),
     "Utilities (VPU)": ("Natural Gas", "USD"),
     "Electric Grid": ("Copper", "USD"),
+
+    # ---- Materials ----
     "Materials (S&P)": ("Copper", "AUD"),
     "Global Materials": ("Copper", "AUD"),
     "Timber": ("Lumber", "CAD"),
-    "Timber & Forestry": ("Lumber", "CAD")
+    "Timber & Forestry": ("Lumber", "CAD"),
+
+    # ---- New: Foreign Country ETFs ----
+    "Japan (EWJ)": ("WTI Crude Oil", "JPY"),      # Japan imports oil
+    "China (FXI)": ("Copper", "CNY"),             # China is a major copper consumer
+    "Brazil (EWZ)": ("Soybeans", "BRL"),          # Brazil is a top soy exporter
+    "India (INDA)": ("WTI Crude Oil", "INR"),     # India imports oil
+    "Emerging Markets (EEM)": ("Copper", "USD"),  # broad EM commodity play
+    "Developed ex-US (EFA)": ("WTI Crude Oil", "USD"),
+    "Europe (VGK)": ("Natural Gas", "EUR"),       # Europe uses Russian/US gas
+    "Asia-Pacific (VPL)": ("Copper", "USD")       # broad APAC play
 }
 
 # ------------------------------------------------------------
