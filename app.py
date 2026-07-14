@@ -208,6 +208,41 @@ SECTOR_ETFS = {
     "Mortgage REIT ETF (REM)": "REM",
     "Timber ETF (WOOD)": "WOOD",            # already exists
     "Global Timber (CUT)": "CUT",           # already exists
+
+    # ---- Additional Country ETFs (from your list) ----
+"UK (EWU)": "EWU",
+"Switzerland (EWL)": "EWL",
+"Canada (EWC)": "EWC",
+"Australia (EWA)": "EWA",
+"New Zealand (ENZL)": "ENZL",
+"Sweden (EWD)": "EWD",
+"Norway (ENOR)": "ENOR",
+"Denmark (EDEN)": "EDEN",
+"Hong Kong (EWH)": "EWH",
+"Singapore (EWS)": "EWS",
+"South Korea (EWY)": "EWY",
+"Taiwan (EWT)": "EWT",
+"Indonesia (EIDO)": "EIDO",
+"Thailand (THD)": "THD",
+"Malaysia (EWM)": "EWM",
+"Philippines (EPHE)": "EPHE",
+"Vietnam (VNM)": "VNM",
+"Poland (EPOL)": "EPOL",
+"Mexico (EWW)": "EWW",
+"Argentina (ARGT)": "ARGT",
+"Chile (ECH)": "ECH",
+"Peru (EPU)": "EPU",
+"Turkey (TUR)": "TUR",
+"Saudi Arabia (KSA)": "KSA",
+"South Africa (EZA)": "EZA",
+"UAE (UAE)": "UAE",
+"Qatar (QAT)": "QAT",
+"Kuwait (KWT)": "KWT",
+"Israel (EIS)": "EIS",
+"Eurozone (EZU)": "EZU",      # broad Eurozone, complement to VGK
+"China A (KBA)": "KBA",       # alternative China exposure
+"China (CNYA)": "CNYA",       # iShares China A
+    
 }
 
 CURRENCY_NAMES = {
@@ -468,6 +503,40 @@ CONVERGENCE_MAP = {
     "Developed ex-US (EFA)": ("WTI Crude Oil", "USD"),
     "Europe (VGK)": ("Natural Gas", "EUR"),
     "Asia-Pacific (VPL)": ("Copper (COMEX)", "USD"),
+
+    # ---- Additional Country ETF mappings ----
+"UK (EWU)": ("Brent Crude", "GBP"),           # UK oil & gas
+"Switzerland (EWL)": ("Gold", "CHF"),          # safe‑haven, gold proxy
+"Canada (EWC)": ("WTI Crude Oil", "CAD"),      # major oil exporter
+"Australia (EWA)": ("Iron Ore 62%", "AUD"),    # top iron ore exporter
+"New Zealand (ENZL)": ("Class III Milk", "NZD"), # dairy export
+"Sweden (EWD)": (None, "SEK"),                 # no major commodity, use currency only
+"Norway (ENOR)": ("Brent Crude", "NOK"),       # oil & gas
+"Denmark (EDEN)": (None, "DKK"),               # no major commodity
+"Hong Kong (EWH)": (None, "HKD"),              # no commodity, currency only
+"Singapore (EWS)": (None, "SGD"),              # no commodity
+"South Korea (EWY)": ("Copper (COMEX)", "KRW"), # industrial demand proxy
+"Taiwan (EWT)": ("Copper (COMEX)", "TWD"),     # tech manufacturing, copper proxy
+"Indonesia (EIDO)": (None, "IDR"),             # could use coal, but not in list
+"Thailand (THD)": ("Rice", "THB"),             # major rice exporter
+"Malaysia (EWM)": (None, "MYR"),               # palm oil not in list
+"Philippines (EPHE)": (None, "PHP"),
+"Vietnam (VNM)": (None, "VND"),
+"Poland (EPOL)": (None, "PLN"),
+"Mexico (EWW)": ("WTI Crude Oil", "MXN"),      # oil producer
+"Argentina (ARGT)": ("Soybeans", "ARS"),       # top soy exporter
+"Chile (ECH)": ("Copper (COMEX)", "CLP"),      # #1 copper producer
+"Peru (EPU)": ("Copper (COMEX)", "PEN"),       # major copper/silver
+"Turkey (TUR)": (None, "TRY"),
+"Saudi Arabia (KSA)": ("WTI Crude Oil", "SAR"), # oil giant
+"South Africa (EZA)": ("Gold", "ZAR"),         # gold & platinum producer
+"UAE (UAE)": ("WTI Crude Oil", "AED"),         # oil
+"Qatar (QAT)": ("Natural Gas", "QAR"),         # LNG exporter
+"Kuwait (KWT)": ("WTI Crude Oil", "KWD"),      # oil
+"Israel (EIS)": (None, "ILS"),
+"Eurozone (EZU)": ("Natural Gas", "EUR"),      # Europe gas importer
+"China A (KBA)": ("Copper (COMEX)", "CNY"),    # industrial proxy
+"China (CNYA)": ("Copper (COMEX)", "CNY"),     # same
 }
 
 # ------------------------------------------------------------
