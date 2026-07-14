@@ -318,25 +318,21 @@ COMMODITY_TICKERS = {
 # ------------------------------------------------------------
 
 def get_historical(ticker):
-
     try:
-
-        data = yf.download(ticker, period='5y', interval='1d', progress=False, timeout=30)
-
+        # Fetch all available data at weekly resolution
+        data = yf.download(ticker, period='max', interval='1wk', progress=False, timeout=30)
         if data.empty:
-
             return None
-
+        # Use 'Close' column if exists, otherwise first column
         series = data['Close'] if 'Close' in data.columns else data.iloc[:, 0]
-
-        weekly = series.resample('W').last().dropna()
-
-        return weekly if not weekly.empty else None
-
+        # If it's a DataFrame, squeeze to Series
+        if isinstance(series, pd.DataFrame):
+            series = series.squeeze()
+        # Drop any remaining NaNs
+        series = series.dropna()
+        return series if not series.empty else None
     except Exception as e:
-
         print(f"Error downloading {ticker}: {e}")
-
         return None
 
 # ------------------------------------------------------------
