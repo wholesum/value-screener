@@ -15,7 +15,7 @@ def root():
     return send_from_directory('.', 'screener.html')
 
 # ------------------------------------------------------------
-# CACHE LOADER
+# CACHE LOADER & SAVER
 # ------------------------------------------------------------
 CACHE_FILE = 'cache.pkl'
 
@@ -29,6 +29,11 @@ def load_cache():
     except:
         return {}
 
+def save_cache(cache):
+    """Save cache to disk."""
+    with open(CACHE_FILE, 'wb') as f:
+        pickle.dump(cache, f)
+
 def get_cached_historical(ticker):
     """Return weekly price series from cache."""
     cache = load_cache()
@@ -38,7 +43,7 @@ def get_cached_historical(ticker):
     return None
 
 def get_gold_ratio(ticker):
-    """Compute gold ratio using cached data."""
+    """Compute gold ratio using cached data, and cache the result."""
     cache = load_cache()
     key = f'gold_ratio_{ticker}'
     if key in cache:
@@ -61,19 +66,26 @@ def get_gold_ratio(ticker):
         return None
     current_ratio = ratio_series.iloc[-1]
     historical_mean = ratio_series.mean()
+    
+    # --- FIX: ensure historical_mean is a scalar ---
+    if isinstance(historical_mean, pd.Series):
+        historical_mean = historical_mean.iloc[0]
     if historical_mean == 0:
         return None
+        
     deviation = (current_ratio - historical_mean) / historical_mean * 100
     result = {
         'current_ratio': float(current_ratio),
         'historical_mean': float(historical_mean),
         'deviation': float(deviation)
     }
-    # (Optional) save to cache – not needed because populate_cache.py already computed it
+    # Store in cache for next time
+    cache[key] = result
+    save_cache(cache)
     return result
 
 # ------------------------------------------------------------
-# LISTS (sectors, currencies, commodities)
+# LISTS (sectors, currencies, commodities) – unchanged
 # ------------------------------------------------------------
 SECTOR_ETFS = {
     "Energy (S&P)": "XLE",
