@@ -446,5 +446,30 @@ def debug_ticker(ticker):
 def health():
     return jsonify({'status': 'ok', 'session_type': 'curl_cffi' if YF_SESSION else 'default', 'cached_keys': len(CACHE)})
 
+#ADDED!
+# At the bottom of app.py, before app.run()
+def warm_cache():
+    """Pre-fetch all tickers on startup so first request is instant."""
+    log.info("Warming cache with all tickers...")
+    # Fetch gold first (required for all ratios)
+    get_cached_historical('GC=F')
+    # Fetch all sectors, currencies, commodities in parallel
+    all_tickers = list(SECTOR_ETFS.values()) + list(CURRENCY_TICKERS.values()) + list(COMMODITY_TICKERS.values())
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(get_cached_historical, t): t for t in all_tickers if t != "USDUSD=X"}
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                log.warning(f"Failed to pre-fetch {futures[future]}: {e}")
+    log.info("Cache warm-up complete!")
+
+# Run this before starting the server
+if __name__ == '__main__':
+    warm_cache()
+    app.run(debug=True, port=5000)
+    
+    #ADDED
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
