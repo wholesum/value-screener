@@ -15,12 +15,12 @@ def root():
     return send_from_directory('.', 'screener.html')
 
 # ------------------------------------------------------------
-# CACHE LOADER & SAVER
+# CACHE – ABSOLUTE PATH
 # ------------------------------------------------------------
-CACHE_FILE = 'cache.pkl'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CACHE_FILE = os.path.join(BASE_DIR, 'cache.pkl')
 
 def load_cache():
-    """Load cached data from disk (created by populate_cache.py)."""
     if not os.path.exists(CACHE_FILE):
         return {}
     try:
@@ -30,17 +30,37 @@ def load_cache():
         return {}
 
 def save_cache(cache):
-    """Save cache to disk."""
     with open(CACHE_FILE, 'wb') as f:
         pickle.dump(cache, f)
 
 def get_cached_historical(ticker):
-    """Return weekly price series from cache."""
+    """
+    Return weekly price series from cache.
+    Ensures data is a flat list of floats to avoid list/list division errors.
+    """
     cache = load_cache()
     key = f'hist_{ticker}'
-    if key in cache:
-        return pd.Series(cache[key]['data'], index=pd.to_datetime(cache[key]['index']))
-    return None
+    if key not in cache:
+        return None
+
+    raw_data = cache[key]['data']
+    raw_index = cache[key]['index']
+
+    # --- FIX: flatten data if it's nested ---
+    if isinstance(raw_data, list) and len(raw_data) > 0:
+        if isinstance(raw_data[0], list):
+            # Flatten list of lists
+            flat_data = [float(x) for sublist in raw_data for x in sublist]
+        else:
+            flat_data = [float(x) for x in raw_data]
+    else:
+        flat_data = [float(x) for x in raw_data] if raw_data else []
+
+    if not flat_data:
+        return None
+
+    index = pd.to_datetime(raw_index)
+    return pd.Series(flat_data, index=index)
 
 def get_gold_ratio(ticker):
     """Compute gold ratio using cached data, and cache the result."""
@@ -48,38 +68,41 @@ def get_gold_ratio(ticker):
     key = f'gold_ratio_{ticker}'
     if key in cache:
         return cache[key]
-    
+
     gold_series = get_cached_historical('GC=F')
-    if gold_series is None:
+    if gold_series is None or gold_series.empty:
         return None
     asset_series = get_cached_historical(ticker)
-    if asset_series is None:
+    if asset_series is None or asset_series.empty:
         return None
-    
+
     common_dates = asset_series.index.intersection(gold_series.index)
     if len(common_dates) < 5:
         return None
+
     asset_aligned = asset_series.loc[common_dates]
     gold_aligned = gold_series.loc[common_dates]
+
+    # ---- SAFE DIVISION ----
     ratio_series = asset_aligned / gold_aligned
     if ratio_series.empty:
         return None
+
     current_ratio = ratio_series.iloc[-1]
     historical_mean = ratio_series.mean()
-    
-    # --- FIX: ensure historical_mean is a scalar ---
+
+    # Ensure historical_mean is a scalar
     if isinstance(historical_mean, pd.Series):
         historical_mean = historical_mean.iloc[0]
     if historical_mean == 0:
         return None
-        
+
     deviation = (current_ratio - historical_mean) / historical_mean * 100
     result = {
         'current_ratio': float(current_ratio),
         'historical_mean': float(historical_mean),
         'deviation': float(deviation)
     }
-    # Store in cache for next time
     cache[key] = result
     save_cache(cache)
     return result
