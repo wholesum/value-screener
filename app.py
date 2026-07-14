@@ -188,7 +188,7 @@ SECTOR_ETFS = {
     "Timber": "WOOD",
     "Timber & Forestry": "CUT",
 
-    # ---- New: Foreign Country ETFs ----
+    # ---- Foreign Country ETFs (from previous expansion) ----
     "Japan (EWJ)": "EWJ",
     "China (FXI)": "FXI",
     "Brazil (EWZ)": "EWZ",
@@ -198,8 +198,16 @@ SECTOR_ETFS = {
     "Europe (VGK)": "VGK",
     "Asia-Pacific (VPL)": "VPL",
 
-    # ---- New: Real Estate / Homebuilders ----
-    "Homebuilders": "ITB"
+    # ---- NEW Real Estate ETFs (as requested) ----
+    "US Real Estate (VNQ)": "VNQ",          # (already exists as REITs (VNQ), but duplicate ok)
+    "Global Real Estate (REET)": "REET",
+    "Dow Jones REIT (IYR)": "IYR",          # already exists as U.S. REITs
+    "Schwab REIT (SCHH)": "SCHH",
+    "Homebuilders ETF": "ITB",              # already exists
+    "Homebuilders ETF 2 (XHB)": "XHB",
+    "Mortgage REIT ETF (REM)": "REM",
+    "Timber ETF (WOOD)": "WOOD",            # already exists
+    "Global Timber (CUT)": "CUT",           # already exists
 }
 
 CURRENCY_NAMES = {
@@ -264,53 +272,82 @@ CURRENCY_NAMES = {
 CURRENCY_TICKERS = {code: code + "USD=X" if code != "USD" else "USDUSD=X" for code in CURRENCY_NAMES}
 
 COMMODITY_TICKERS = {
-    # Precious metals
+    # =========================
+    # Precious Metals
+    # =========================
     "Gold": "GC=F",
     "Silver": "SI=F",
     "Platinum": "PL=F",
     "Palladium": "PA=F",
 
-    # Base / industrial metals (re‑added)
-    "Copper": "HG=F",
+    # =========================
+    # Base / Industrial Metals
+    # =========================
+    "Copper (COMEX)": "HG=F",
+
+    # LME contracts (availability varies by Yahoo region/account)
     "Aluminum": "ALI=F",
     "Nickel": "NICKEL=F",
     "Zinc": "ZINC=F",
     "Lead": "LEAD=F",
     "Tin": "TIN=F",
 
+    # Steel
+    "Hot Rolled Coil Steel": "HRC=F",
+
+    # Iron ore
+    "Iron Ore 62%": "TIO=F",
+
+    # =========================
     # Energy
+    # =========================
     "WTI Crude Oil": "CL=F",
     "Brent Crude": "BZ=F",
     "Natural Gas": "NG=F",
     "Heating Oil": "HO=F",
     "RBOB Gasoline": "RB=F",
-    "Propane": "B0=F",
 
-    # Grains
+    # ICE Gas Oil
+    "Low Sulfur Gasoil": "QS=F",
+
+    # =========================
+    # Agriculture - Grains
+    # =========================
     "Corn": "ZC=F",
-    "Wheat": "ZW=F",
+    "Wheat (Chicago)": "ZW=F",
     "Kansas Wheat": "KE=F",
+    "Minneapolis Wheat": "MWE=F",
+
     "Soybeans": "ZS=F",
     "Soybean Meal": "ZM=F",
     "Soybean Oil": "ZL=F",
+
     "Oats": "ZO=F",
     "Rice": "ZR=F",
 
-    # Softs
+    # =========================
+    # Soft Commodities
+    # =========================
     "Coffee": "KC=F",
     "Sugar #11": "SB=F",
     "Cocoa": "CC=F",
     "Cotton": "CT=F",
     "Orange Juice": "OJ=F",
 
-    # Livestock & dairy
-    "Lumber": "LBR=F",
+    # =========================
+    # Livestock
+    # =========================
     "Live Cattle": "LE=F",
     "Feeder Cattle": "GF=F",
     "Lean Hogs": "HE=F",
+
+    # Dairy
     "Class III Milk": "DC=F",
     "Butter": "CB=F",
-    "Cheese": "CSC=F"
+    "Cheese": "CSC=F",
+
+    # Lumber
+    "Lumber": "LBR=F",
 }
 
 CONVERGENCE_MAP = {
@@ -322,12 +359,12 @@ CONVERGENCE_MAP = {
     "Midstream Pipelines": ("Natural Gas", "CAD"),
     "Natural Gas Producers": ("Natural Gas", "CAD"),
     "Refiners": ("WTI Crude Oil", "CAD"),
-    "Uranium": (None, None),  # no direct commodity mapping
+    "Uranium": (None, None),
 
     # ---- Metals & Mining ----
-    "Metals & Mining": ("Copper", "AUD"),
-    "Global Miners": ("Copper", "AUD"),
-    "Copper Miners": ("Copper", "AUD"),
+    "Metals & Mining": ("Copper (COMEX)", "AUD"),
+    "Global Miners": ("Copper (COMEX)", "AUD"),
+    "Copper Miners": ("Copper (COMEX)", "AUD"),
     "Silver Miners": ("Silver", "AUD"),
     "Junior Silver Miners": ("Silver", "AUD"),
     "Gold Miners": ("Gold", "AUD"),
@@ -335,8 +372,8 @@ CONVERGENCE_MAP = {
     "Junior Gold Explorers": ("Gold", "AUD"),
     "Rare Earths": (None, None),
     "Lithium": (None, None),
-    "Battery Materials": ("Copper", "AUD"),
-    "Steel": (None, None),
+    "Battery Materials": ("Copper (COMEX)", "AUD"),
+    "Steel": ("Hot Rolled Coil Steel", "USD"),  # updated
 
     # ---- Agriculture ----
     "Agriculture/Fertilizer": ("Corn", "USD"),
@@ -373,7 +410,7 @@ CONVERGENCE_MAP = {
 
     # ---- Industrials ----
     "Industrials (S&P)": (None, "USD"),
-    "Infrastructure": ("Copper", "USD"),
+    "Infrastructure": ("Copper (COMEX)", "USD"),
     "Aerospace & Defense": (None, "USD"),
     "Aerospace (equal weight)": (None, "USD"),
     "Defense (PPA)": (None, "USD"),
@@ -390,12 +427,20 @@ CONVERGENCE_MAP = {
     "Hotels": (None, "USD"),
     "Travel": (None, "USD"),
 
-    # ---- Real Estate ----
+    # ---- Real Estate (expanded) ----
     "Real Estate (S&P)": (None, "USD"),
-    "REITs (VNQ)": (None, "USD"),
-    "U.S. REITs": (None, "USD"),
-    "Residential REITs": (None, "USD"),
-    "Homebuilders": ("Lumber", "USD"),   # new
+    "REITs (VNQ)": ("Lumber", "USD"),
+    "U.S. REITs": ("Lumber", "USD"),
+    "Residential REITs": ("Lumber", "USD"),
+    "US Real Estate (VNQ)": ("Lumber", "USD"),
+    "Global Real Estate (REET)": (None, "USD"),
+    "Dow Jones REIT (IYR)": ("Lumber", "USD"),
+    "Schwab REIT (SCHH)": ("Lumber", "USD"),
+    "Homebuilders ETF": ("Lumber", "USD"),
+    "Homebuilders ETF 2 (XHB)": ("Lumber", "USD"),
+    "Mortgage REIT ETF (REM)": (None, "USD"),
+    "Timber ETF (WOOD)": ("Lumber", "CAD"),
+    "Global Timber (CUT)": ("Lumber", "CAD"),
 
     # ---- Communications ----
     "Communication Services": (None, "USD"),
@@ -406,23 +451,23 @@ CONVERGENCE_MAP = {
     # ---- Utilities ----
     "Utilities (S&P)": ("Natural Gas", "USD"),
     "Utilities (VPU)": ("Natural Gas", "USD"),
-    "Electric Grid": ("Copper", "USD"),
+    "Electric Grid": ("Copper (COMEX)", "USD"),
 
     # ---- Materials ----
-    "Materials (S&P)": ("Copper", "AUD"),
-    "Global Materials": ("Copper", "AUD"),
+    "Materials (S&P)": ("Copper (COMEX)", "AUD"),
+    "Global Materials": ("Copper (COMEX)", "AUD"),
     "Timber": ("Lumber", "CAD"),
     "Timber & Forestry": ("Lumber", "CAD"),
 
-    # ---- New: Foreign Country ETFs ----
-    "Japan (EWJ)": ("WTI Crude Oil", "JPY"),      # Japan imports oil
-    "China (FXI)": ("Copper", "CNY"),             # China is a major copper consumer
-    "Brazil (EWZ)": ("Soybeans", "BRL"),          # Brazil is a top soy exporter
-    "India (INDA)": ("WTI Crude Oil", "INR"),     # India imports oil
-    "Emerging Markets (EEM)": ("Copper", "USD"),  # broad EM commodity play
+    # ---- Foreign Country ETFs ----
+    "Japan (EWJ)": ("WTI Crude Oil", "JPY"),
+    "China (FXI)": ("Copper (COMEX)", "CNY"),
+    "Brazil (EWZ)": ("Soybeans", "BRL"),
+    "India (INDA)": ("WTI Crude Oil", "INR"),
+    "Emerging Markets (EEM)": ("Copper (COMEX)", "USD"),
     "Developed ex-US (EFA)": ("WTI Crude Oil", "USD"),
-    "Europe (VGK)": ("Natural Gas", "EUR"),       # Europe uses Russian/US gas
-    "Asia-Pacific (VPL)": ("Copper", "USD")       # broad APAC play
+    "Europe (VGK)": ("Natural Gas", "EUR"),
+    "Asia-Pacific (VPL)": ("Copper (COMEX)", "USD"),
 }
 
 # ------------------------------------------------------------
