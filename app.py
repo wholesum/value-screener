@@ -473,3 +473,18 @@ if __name__ == '__main__':
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
+
+if __name__ == '__main__':
+    # Pre-fetch gold first (required for all ratios)
+    print("Warming cache...")
+    get_cached_historical('GC=F')
+    
+    # Then pre-fetch all tickers
+    all_tickers = list(SECTOR_ETFS.values()) + list(CURRENCY_TICKERS.values()) + list(COMMODITY_TICKERS.values())
+    for ticker in all_tickers:
+        if ticker != "USDUSD=X":
+            get_cached_historical(ticker)
+    print("Cache warm-up complete!")
+    
+    app.run()
