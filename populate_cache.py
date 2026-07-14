@@ -92,7 +92,7 @@ SECTOR_ETFS = {
     "Timber": "WOOD",
     "Timber & Forestry": "CUT",
 
-    # ---- New: Foreign Country ETFs ----
+    # ---- Foreign Country ETFs (from previous expansion) ----
     "Japan (EWJ)": "EWJ",
     "China (FXI)": "FXI",
     "Brazil (EWZ)": "EWZ",
@@ -102,8 +102,16 @@ SECTOR_ETFS = {
     "Europe (VGK)": "VGK",
     "Asia-Pacific (VPL)": "VPL",
 
-    # ---- New: Real Estate / Homebuilders ----
-    "Homebuilders": "ITB"
+    # ---- NEW Real Estate ETFs (as requested) ----
+    "US Real Estate (VNQ)": "VNQ",          # (already exists as REITs (VNQ), but duplicate ok)
+    "Global Real Estate (REET)": "REET",
+    "Dow Jones REIT (IYR)": "IYR",          # already exists as U.S. REITs
+    "Schwab REIT (SCHH)": "SCHH",
+    "Homebuilders ETF": "ITB",              # already exists
+    "Homebuilders ETF 2 (XHB)": "XHB",
+    "Mortgage REIT ETF (REM)": "REM",
+    "Timber ETF (WOOD)": "WOOD",            # already exists
+    "Global Timber (CUT)": "CUT",           # already exists
 }
 
 CURRENCY_NAMES = {
@@ -225,53 +233,82 @@ CURRENCY_NAMES = {
 CURRENCY_TICKERS = {code: code + "USD=X" if code != "USD" else "USDUSD=X" for code in CURRENCY_NAMES}
 
 COMMODITY_TICKERS = {
-    # Precious metals
+    # =========================
+    # Precious Metals
+    # =========================
     "Gold": "GC=F",
     "Silver": "SI=F",
     "Platinum": "PL=F",
     "Palladium": "PA=F",
 
-    # Base / industrial metals (re‑added)
-    "Copper": "HG=F",
+    # =========================
+    # Base / Industrial Metals
+    # =========================
+    "Copper (COMEX)": "HG=F",
+
+    # LME contracts (availability varies by Yahoo region/account)
     "Aluminum": "ALI=F",
     "Nickel": "NICKEL=F",
     "Zinc": "ZINC=F",
     "Lead": "LEAD=F",
     "Tin": "TIN=F",
 
+    # Steel
+    "Hot Rolled Coil Steel": "HRC=F",
+
+    # Iron ore
+    "Iron Ore 62%": "TIO=F",
+
+    # =========================
     # Energy
+    # =========================
     "WTI Crude Oil": "CL=F",
     "Brent Crude": "BZ=F",
     "Natural Gas": "NG=F",
     "Heating Oil": "HO=F",
     "RBOB Gasoline": "RB=F",
-    "Propane": "B0=F",
 
-    # Grains
+    # ICE Gas Oil
+    "Low Sulfur Gasoil": "QS=F",
+
+    # =========================
+    # Agriculture - Grains
+    # =========================
     "Corn": "ZC=F",
-    "Wheat": "ZW=F",
+    "Wheat (Chicago)": "ZW=F",
     "Kansas Wheat": "KE=F",
+    "Minneapolis Wheat": "MWE=F",
+
     "Soybeans": "ZS=F",
     "Soybean Meal": "ZM=F",
     "Soybean Oil": "ZL=F",
+
     "Oats": "ZO=F",
     "Rice": "ZR=F",
 
-    # Softs
+    # =========================
+    # Soft Commodities
+    # =========================
     "Coffee": "KC=F",
     "Sugar #11": "SB=F",
     "Cocoa": "CC=F",
     "Cotton": "CT=F",
     "Orange Juice": "OJ=F",
 
-    # Livestock & dairy
-    "Lumber": "LBR=F",
+    # =========================
+    # Livestock
+    # =========================
     "Live Cattle": "LE=F",
     "Feeder Cattle": "GF=F",
     "Lean Hogs": "HE=F",
+
+    # Dairy
     "Class III Milk": "DC=F",
     "Butter": "CB=F",
-    "Cheese": "CSC=F"
+    "Cheese": "CSC=F",
+
+    # Lumber
+    "Lumber": "LBR=F",
 }
 
 # ------------------------------------------------------------
