@@ -15,157 +15,95 @@ CACHE_FILE = 'cache.pkl'
 # ------------------------------------------------------------
 
 SECTOR_ETFS = {
-
+    # ---- Existing sectors (unchanged) ----
     "Energy (S&P)": "XLE",
-
     "Oil Exploration (E&P)": "XOP",
-
     "Oil Services": "OIH",
-
     "Oil Equipment": "IEZ",
-
     "Midstream Pipelines": "AMLP",
-
     "Natural Gas Producers": "FCG",
-
     "Refiners": "CRAK",
-
     "Uranium": "URA",
-
     "Metals & Mining": "XME",
-
     "Global Miners": "PICK",
-
     "Copper Miners": "COPX",
-
     "Silver Miners": "SIL",
-
     "Junior Silver Miners": "SILJ",
-
     "Gold Miners": "GDX",
-
     "Junior Gold Miners": "GDXJ",
-
     "Junior Gold Explorers": "GOEX",
-
     "Rare Earths": "REMX",
-
     "Lithium": "LIT",
-
     "Battery Materials": "BATT",
-
     "Steel": "SLX",
-
     "Agriculture/Fertilizer": "MOO",
-
     "Technology (S&P)": "XLK",
-
     "Semiconductors (SMH)": "SMH",
-
     "Semiconductors (SOXX)": "SOXX",
-
     "Software (IGV)": "IGV",
-
     "Cybersecurity (HACK)": "HACK",
-
     "Cybersecurity (BUG)": "BUG",
-
     "Cloud Computing (CLOU)": "CLOU",
-
     "Cloud (SKYY)": "SKYY",
-
     "Robotics (BOTZ)": "BOTZ",
-
     "Robotics (ROBO)": "ROBO",
-
     "Internet (FDN)": "FDN",
-
     "Software (XSW)": "XSW",
-
     "Cybersecurity (CIBR)": "CIBR",
-
     "Financials (S&P)": "XLF",
-
     "Regional Banks": "KRE",
-
     "Banks": "KBE",
-
     "Insurance": "KIE",
-
     "Brokers": "IAI",
-
     "Financial Services": "IYG",
-
     "Healthcare (S&P)": "XLV",
-
     "Biotech (equal weight)": "XBI",
-
     "Biotech (IBB)": "IBB",
-
     "Medical Devices": "IHI",
-
     "Pharmaceuticals": "PJP",
-
     "Industrials (S&P)": "XLI",
-
     "Infrastructure": "PAVE",
-
     "Aerospace & Defense": "ITA",
-
     "Aerospace (equal weight)": "XAR",
-
     "Defense (PPA)": "PPA",
-
     "Transportation": "IYT",
-
     "Airlines": "JETS",
-
     "Autos": "CARZ",
-
     "Consumer Discretionary (S&P)": "XLY",
-
     "Consumer Staples (S&P)": "XLP",
-
     "Retail": "XRT",
-
     "Online Retail": "IBUY",
-
     "Leisure & Entertainment": "PEJ",
-
     "Hotels": "BEDZ",
-
     "Travel": "AWAY",
-
     "Real Estate (S&P)": "XLRE",
-
     "REITs (VNQ)": "VNQ",
-
     "U.S. REITs": "IYR",
-
     "Residential REITs": "REZ",
-
     "Communication Services": "XLC",
-
     "Telecom & Media": "VOX",
-
     "Esports": "HERO",
-
     "Video Gaming": "ESPO",
-
     "Utilities (S&P)": "XLU",
-
     "Utilities (VPU)": "VPU",
-
     "Electric Grid": "GRID",
-
     "Materials (S&P)": "XLB",
-
     "Global Materials": "MXI",
-
     "Timber": "WOOD",
+    "Timber & Forestry": "CUT",
 
-    "Timber & Forestry": "CUT"
+    # ---- New: Foreign Country ETFs ----
+    "Japan (EWJ)": "EWJ",
+    "China (FXI)": "FXI",
+    "Brazil (EWZ)": "EWZ",
+    "India (INDA)": "INDA",
+    "Emerging Markets (EEM)": "EEM",
+    "Developed ex-US (EFA)": "EFA",
+    "Europe (VGK)": "VGK",
+    "Asia-Pacific (VPL)": "VPL",
 
+    # ---- New: Real Estate / Homebuilders ----
+    "Homebuilders": "ITB"
 }
 
 CURRENCY_NAMES = {
@@ -287,69 +225,53 @@ CURRENCY_NAMES = {
 CURRENCY_TICKERS = {code: code + "USD=X" if code != "USD" else "USDUSD=X" for code in CURRENCY_NAMES}
 
 COMMODITY_TICKERS = {
-
+    # Precious metals
     "Gold": "GC=F",
-
     "Silver": "SI=F",
-
     "Platinum": "PL=F",
-
     "Palladium": "PA=F",
 
+    # Base / industrial metals (re‑added)
     "Copper": "HG=F",
+    "Aluminum": "ALI=F",
+    "Nickel": "NICKEL=F",
+    "Zinc": "ZINC=F",
+    "Lead": "LEAD=F",
+    "Tin": "TIN=F",
 
+    # Energy
     "WTI Crude Oil": "CL=F",
-
     "Brent Crude": "BZ=F",
-
     "Natural Gas": "NG=F",
-
     "Heating Oil": "HO=F",
-
     "RBOB Gasoline": "RB=F",
-
     "Propane": "B0=F",
 
+    # Grains
     "Corn": "ZC=F",
-
     "Wheat": "ZW=F",
-
     "Kansas Wheat": "KE=F",
-
     "Soybeans": "ZS=F",
-
     "Soybean Meal": "ZM=F",
-
     "Soybean Oil": "ZL=F",
-
     "Oats": "ZO=F",
-
     "Rice": "ZR=F",
 
+    # Softs
     "Coffee": "KC=F",
-
     "Sugar #11": "SB=F",
-
     "Cocoa": "CC=F",
-
     "Cotton": "CT=F",
-
     "Orange Juice": "OJ=F",
 
+    # Livestock & dairy
     "Lumber": "LBR=F",
-
     "Live Cattle": "LE=F",
-
     "Feeder Cattle": "GF=F",
-
     "Lean Hogs": "HE=F",
-
     "Class III Milk": "DC=F",
-
     "Butter": "CB=F",
-
     "Cheese": "CSC=F"
-
 }
 
 # ------------------------------------------------------------
