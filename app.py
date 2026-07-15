@@ -8,47 +8,6 @@ import pandas as pd
 import traceback
 from collections import Counter
 
-def get_etf_rating(ticker):
-    """
-    Return (rating_label, count) for an ETF.
-    First try the ETF's own recommendationKey, then compute from holdings.
-    """
-    try:
-        etf = yf.Ticker(ticker)
-        info = etf.info
-        # 1) Try direct recommendationKey
-        direct = info.get('recommendationKey')
-        if direct and direct in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
-            label = direct.replace('_', ' ').title()
-            return label, info.get('numberOfAnalystOpinions', 0)
-    except:
-        pass
-    # 2) Fallback to holdings consensus
-    try:
-        etf = yf.Ticker(ticker)
-        holdings = etf.funds_data.get('topHoldings', [])[:10]
-        ratings = []
-        for h in holdings:
-            sym = h.get('symbol')
-            if sym:
-                try:
-                    stock = yf.Ticker(sym)
-                    rec = stock.info.get('recommendationKey')
-                    if rec in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
-                        ratings.append(rec)
-                except:
-                    continue
-        if ratings:
-            # Most common rating
-            from collections import Counter
-            mode = Counter(ratings).most_common(1)[0][0]
-            label = mode.replace('_', ' ').title()
-            return label, len(ratings)
-    except:
-        pass
-    return None, None
-
-
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
@@ -57,7 +16,7 @@ def root():
     return send_from_directory('.', 'screener.html')
 
 # ------------------------------------------------------------
-# CACHE (unchanged)
+# CACHE – ABSOLUTE PATH
 # ------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_FILE = os.path.join(BASE_DIR, 'cache.pkl')
@@ -130,42 +89,45 @@ def get_gold_ratio(ticker):
     return result
 
 # ------------------------------------------------------------
-# RATING HELPERS (using holdings aggregation)
+# RATING HELPER – tries direct ETF rating, then holdings consensus
 # ------------------------------------------------------------
-RATING_MAP = {
-    'strong_buy': 1,
-    'buy': 2,
-    'hold': 3,
-    'sell': 4,
-    'strong_sell': 5
-}
-RATING_LABELS = {v: k.replace('_', ' ').title() for k, v in RATING_MAP.items()}
-
-def get_holdings_rating(ticker, top_n=10):
-    """Return the most common analyst rating among top holdings."""
+def get_etf_rating(ticker):
+    """
+    Return (rating_label, count) for an ETF.
+    Tries: 1) ETF's own recommendationKey, 2) consensus from top 10 holdings.
+    """
+    # 1) Direct ETF rating
     try:
         etf = yf.Ticker(ticker)
-        holdings = etf.funds_data.get('topHoldings', [])[:top_n]
+        info = etf.info
+        direct = info.get('recommendationKey')
+        if direct in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
+            label = direct.replace('_', ' ').title()
+            return label, info.get('numberOfAnalystOpinions', 0)
+    except:
+        pass
+    # 2) Holdings consensus
+    try:
+        etf = yf.Ticker(ticker)
+        holdings = etf.funds_data.get('topHoldings', [])[:10]
         ratings = []
         for h in holdings:
             sym = h.get('symbol')
             if sym:
                 try:
                     stock = yf.Ticker(sym)
-                    info = stock.info
-                    rec = info.get('recommendationKey')
-                    if rec and rec in RATING_MAP:
-                        ratings.append(RATING_MAP[rec])
+                    rec = stock.info.get('recommendationKey')
+                    if rec in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
+                        ratings.append(rec)
                 except:
                     continue
-        if not ratings:
-            return None, None
-        # Most common rating (mode)
-        mode = Counter(ratings).most_common(1)[0][0]
-        label = RATING_LABELS.get(mode, 'N/A')
-        return label, len(ratings)
+        if ratings:
+            mode = Counter(ratings).most_common(1)[0][0]
+            label = mode.replace('_', ' ').title()
+            return label, len(ratings)
     except:
-        return None, None
+        pass
+    return None, None
 
 def rating_bonus(label):
     bonuses = {
@@ -176,7 +138,6 @@ def rating_bonus(label):
         'Strong Sell': -15
     }
     return bonuses.get(label, 0)
-
 # ------------------------------------------------------------
 # LISTS (sectors, currencies, commodities) – fully expanded
 # ------------------------------------------------------------
@@ -579,19 +540,17 @@ def get_currency_rates():
     return {}
 
 # ------------------------------------------------------------
-# ENDPOINTS (updated with ratings from holdings)
+# ENDPOINTS
 # ------------------------------------------------------------
 @app.route('/api/dashboard')
 def dashboard():
     try:
         sectors = []
         for sector_name, etf_ticker in SECTOR_ETFS.items():
+            # ---- P/E (from holdings) ----
             pe = None
-            rating_label = None
-            analysts_count = None
             try:
                 etf = yf.Ticker(etf_ticker)
-                # Compute average P/E from top holdings
                 holdings = etf.funds_data.get('topHoldings', [])[:10]
                 total_pe = 0
                 count = 0
@@ -604,12 +563,16 @@ def dashboard():
                             count += 1
                 if count:
                     pe = round(total_pe / count, 2)
-                # Compute aggregated analyst rating
-                rating_label, analysts_count = get_etf_rating(etf_ticker)
             except:
                 pass
+
+            # ---- Analyst rating ----
+            rating_label, analysts_count = get_etf_rating(etf_ticker)
+
+            # ---- Gold cheapness ----
             gold_info = get_gold_ratio(etf_ticker)
             cheapness = gold_info['deviation'] if gold_info else None
+
             sectors.append({
                 'sector': sector_name,
                 'etf': etf_ticker,
@@ -620,7 +583,7 @@ def dashboard():
             })
         sectors.sort(key=lambda x: x['cheapness'] if x['cheapness'] is not None else 999)
 
-        # Currencies and commodities (unchanged)
+        # ---- Currencies ----
         rates = get_currency_rates()
         currencies = []
         for code, ticker in CURRENCY_TICKERS.items():
@@ -633,6 +596,7 @@ def dashboard():
             currencies.append({'code': code, 'name': CURRENCY_NAMES.get(code, code), 'rate_usd': rate, 'cheapness': cheapness})
         currencies.sort(key=lambda x: x['cheapness'] if x['cheapness'] is not None else 999)
 
+        # ---- Commodities ----
         commodities = []
         try:
             gold = yf.Ticker("GC=F")
@@ -662,7 +626,7 @@ def dashboard():
     except Exception as e:
         print("Dashboard error:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
-#search re-added
+
 @app.route('/api/search')
 def search():
     try:
@@ -674,7 +638,7 @@ def search():
             'currencies': [], 'commodities': [], 'recommendations': []
         }
 
-        # ---- Search sectors ----
+        # ---- Sectors ----
         for sector_name, etf_ticker in SECTOR_ETFS.items():
             if query in sector_name.upper() or query in etf_ticker:
                 pe = None
@@ -696,7 +660,7 @@ def search():
                     pass
                 response['sectors'].append({'name': sector_name, 'etf': etf_ticker, 'avg_pe': pe})
 
-        # ---- Search ETFs (with holdings) ----
+        # ---- ETFs (with holdings) ----
         for sector_name, etf_ticker in SECTOR_ETFS.items():
             if query in etf_ticker or query in sector_name.upper():
                 try:
@@ -718,7 +682,7 @@ def search():
                 except:
                     pass
 
-        # ---- Search stocks (direct + watchlist) ----
+        # ---- Stocks ----
         popular = ["AAPL","MSFT","GOOGL","AMZN","META","TSLA","NVDA","JPM","V","WMT",
                    "JNJ","PG","UNH","HD","DIS","MA","BAC","XOM","CVX","PFE"]
         try:
@@ -738,7 +702,7 @@ def search():
                     m['ticker'] = t
                     response['stocks'].append(m)
 
-        # ---- Search currencies ----
+        # ---- Currencies ----
         rates = get_currency_rates()
         for code, ticker in CURRENCY_TICKERS.items():
             if code == "USD":
@@ -747,7 +711,7 @@ def search():
                 rate = rates.get(code)
                 response['currencies'].append({'code': code, 'name': CURRENCY_NAMES.get(code, code), 'rate_usd': rate})
 
-        # ---- Search commodities ----
+        # ---- Commodities ----
         try:
             gold = yf.Ticker("GC=F")
             gold_price = gold.info.get('regularMarketPrice')
@@ -769,7 +733,7 @@ def search():
         except:
             pass
 
-        # ---- Build recommendations (simple scoring for stocks) ----
+        # ---- Recommendations (simple stock scoring) ----
         for stock in response['stocks']:
             score = 50
             m = stock
@@ -806,18 +770,17 @@ def search():
     except Exception as e:
         print("Search error:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
-#search re-added
+
 @app.route('/api/recommendations')
 def recommendations():
     try:
         sector_cheapness = {}
-        sector_rating_bonus = {}
+        sector_rating = {}
         for sector_name, etf_ticker in SECTOR_ETFS.items():
             gold_info = get_gold_ratio(etf_ticker)
             sector_cheapness[sector_name] = gold_info['deviation'] if gold_info else None
-            # Get rating label from holdings
-            label, _ = get_holdings_rating(etf_ticker)
-            sector_rating_bonus[sector_name] = rating_bonus(label)
+            label, _ = get_etf_rating(etf_ticker)
+            sector_rating[sector_name] = label or 'N/A'
 
         commodity_cheapness = {}
         for com_name, ticker in COMMODITY_TICKERS.items():
@@ -844,8 +807,9 @@ def recommendations():
                 vals.append(com)
             if cur is not None:
                 vals.append(cur)
-            bonus = sector_rating_bonus.get(sector_name, 0)
             avg_cheapness = sum(vals) / len(vals) if vals else 0
+            label = sector_rating.get(sector_name, 'N/A')
+            bonus = rating_bonus(label)
             combined = avg_cheapness + bonus
 
             results.append({
@@ -859,7 +823,7 @@ def recommendations():
                 'currency': curr_code,
                 'currency_cheapness': cur,
                 'rating_bonus': bonus,
-                'analyst_rating': get_holdings_rating(SECTOR_ETFS[sector_name])[0] or 'N/A',
+                'analyst_rating': label,
                 'num_factors': len(vals)
             })
         results.sort(key=lambda x: x['combined_score'])
