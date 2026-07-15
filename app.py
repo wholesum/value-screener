@@ -92,57 +92,14 @@ def get_gold_ratio(ticker):
 # RATING HELPERS – FIXED
 # ------------------------------------------------------------
 def get_etf_rating(ticker):
-    """Return (rating_label, count) from cache, or fetch live."""
-    # 1) Try cache first
+    """Return (rating_label, count) from cache (precomputed from holdings consensus)."""
     cache = load_cache()
     key = f'rating_{ticker}'
     if key in cache:
         data = cache[key]
         return data.get('label'), data.get('count')
-
-    # 2) Live fetch (if not cached)
-    try:
-        etf = yf.Ticker(ticker)
-        info = etf.info
-        direct = info.get('recommendationKey')
-        if direct in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
-            label = direct.replace('_', ' ').title()
-            count = info.get('numberOfAnalystOpinions', 0)
-            # Store in cache for future
-            cache[key] = {'label': label, 'count': count}
-            save_cache(cache)
-            return label, count
-    except:
-        pass
     return None, None
-
-    # 2) Holdings consensus
-    try:
-        etf = yf.Ticker(ticker)
-        holdings = etf.funds_data.get('topHoldings', [])[:10]
-        ratings = []
-        for h in holdings:
-            sym = h.get('symbol')
-            if sym:
-                try:
-                    stock = yf.Ticker(sym)
-                    rec = stock.info.get('recommendationKey')
-                    if rec in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
-                        ratings.append(rec)
-                except:
-                    continue
-        if ratings:
-            mode = Counter(ratings).most_common(1)[0][0]
-            label = mode.replace('_', ' ').title()
-            count = len(ratings)
-            print(f"Holdings consensus for {ticker}: {label} ({count} holdings)")  # debug
-            return label, count
-    except Exception as e:
-        print(f"Error getting holdings rating for {ticker}: {e}")
-
-    print(f"No rating found for {ticker}")
-    return None, None
-
+    
 def rating_bonus(label):
     bonuses = {
         'Strong Buy': 15,
