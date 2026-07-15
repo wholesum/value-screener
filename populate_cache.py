@@ -4,6 +4,8 @@ import yfinance as yf
 import pandas as pd
 import requests  # <-- THIS WAS MISSING
 
+CACHE_FILE = 'cache.pkl'
+
 # ------------------------------------------------------------
 # FRED API CONFIGURATION
 # ------------------------------------------------------------
@@ -351,16 +353,17 @@ def get_historical(ticker, periods=['max', '10y', '5y']):
 # ------------------------------------------------------------
 # FRED DATA FETCHER
 # ------------------------------------------------------------
-def get_fred_series(series_id, frequency='m'):
-    """Fetch a FRED series and return a pandas Series with dates and values."""
+def get_fred_series(series_id, frequency=None):
+    """Fetch a FRED series and return a pandas Series."""
     params = {
         'series_id': series_id,
         'api_key': FRED_API_KEY,
         'file_type': 'json',
-        'frequency': frequency,
         'sort_order': 'asc',
         'units': 'lin',
     }
+    if frequency:
+        params['frequency'] = frequency
     try:
         response = requests.get(FRED_BASE_URL, params=params, timeout=30)
         if response.status_code != 200:
@@ -467,7 +470,7 @@ for ticker in all_tickers:
 print("Fetching FRED economic data...")
 for name, series_id in FRED_SERIES.items():
     print(f"  {name} ({series_id})...")
-    s = get_fred_series(series_id)
+    s = get_fred_series(series_id)  # no frequency specified
     if s is not None:
         cache[f'hist_fred_{series_id}'] = {
             'data': s.values.tolist(),
