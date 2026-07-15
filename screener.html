@@ -6,6 +6,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
+    /* unchanged – keep your existing CSS */
     * { box-sizing: border-box; }
     :root {
       --bg: #15181B;
@@ -204,7 +205,7 @@ function App() {
       h('button', { className: 'go', onClick: runSearch, disabled: loading }, 'SEARCH')
     ),
 
-    // ---- Search Results (if any) ----
+    // ---- Search Results ----
     searchResults && (searchResults.stocks?.length || searchResults.sectors?.length || searchResults.etfs?.length || searchResults.currencies?.length || searchResults.commodities?.length) ? h('section', { className: 'block', key: 'searchResults' },
       h('h2', { className: 'section-title' }, 'Search Results'),
       searchResults.stocks && searchResults.stocks.length > 0 ? h('div', null,
@@ -304,7 +305,7 @@ function App() {
       )
     ) : null,
 
-    // ---- Sectors (with ratings) ----
+    // ---- Sectors ----
     h('section', { className: 'block', key: 'sectors' },
       h('h2', { className: 'section-title' }, 'Sectors (Cheapest first) ', h('span', { className: 'num' }, 'vs. historical gold-ratio mean')),
       h('table', { className: 'stock-table' },
@@ -364,7 +365,7 @@ function App() {
       )
     ),
 
-    // ---- FRED Economic Data (NEW) ----
+    // ---- FRED Economic Data (properly integrated) ----
     fredData && Object.keys(fredData).length > 0 ? h('section', { className: 'block', key: 'fred' },
       h('h2', { className: 'section-title' }, 'FRED Economic Data ', h('span', { className: 'num' }, '(cheapness vs gold)')),
       h('table', { className: 'stock-table' },
