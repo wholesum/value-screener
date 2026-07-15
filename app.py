@@ -494,6 +494,93 @@ CONVERGENCE_MAP = {
     "Eurozone (EZU)": ("Natural Gas", "EUR"),
     "China A (KBA)": ("Copper (COMEX)", "CNY"),
     "China (CNYA)": ("Copper (COMEX)", "CNY"),
+
+    # Add to CONVERGENCE_MAP (after the existing entries)
+"Lumber (PPI)": ("Lumber", "USD"),           # already linked via WOOD
+"Structural Steel (PPI)": ("Hot Rolled Coil Steel", "USD"),
+"Copper Wire (PPI)": ("Copper (COMEX)", "USD"),
+"Cass Freight Index": ("WTI Crude Oil", "USD"),
+"Farm Real Estate Value": ("Corn", "USD"),   # farmland → agriculture
+"Green Street Commercial Property Price Index": ("Lumber", "USD"),  # real estate → lumber
+}
+
+# ------------------------------------------------------------
+# FRED SERIES DICTIONARY (must match populate_cache.py)
+# ------------------------------------------------------------
+FRED_SERIES = {
+    # ---- National House Prices ----
+    "FHFA Purchase Only HPI (US)": "PONHPIM226S",
+    "All-Transactions HPI (US)": "USSTHPI",
+    "S&P Case-Shiller National": "CSUSHPISA",
+    "S&P Case-Shiller 10-City": "SPCS10RSA",
+    "S&P Case-Shiller 20-City": "SPCS20RSA",
+    "Median Sales Price New Homes": "MSPUS",
+
+    # ---- Commercial Real Estate ----
+    "Green Street Commercial Property Price Index": "COMREPUSQ159N",
+    "Commercial Real Estate Price Index": "QUSR628BIS",
+
+    # ---- Farmland ----
+    "Farm Real Estate Value": "FRBV",
+    "Cropland Value": "CRLV",
+    "Pastureland Value": "PTLV",
+
+    # ---- Construction Materials (PPIs) ----
+    "Lumber (PPI)": "WPU081",
+    "Plywood (PPI)": "WPU082",
+    "Millwork (PPI)": "WPU083",
+    "Concrete Products (PPI)": "WPU133",
+    "Ready-Mix Concrete (PPI)": "WPU132101",
+    "Cement (PPI)": "WPU132201",
+    "Gypsum Products (PPI)": "WPU136",
+    "Flat Glass (PPI)": "WPU124",
+    "Structural Steel (PPI)": "WPU10740514",
+    "Copper Wire (PPI)": "WPU102501",
+    "Plastic Pipe (PPI)": "WPU072",
+
+    # ---- Metals PPIs ----
+    "Iron & Steel (PPI)": "WPS101",
+    "Steel Mill Products (PPI)": "WPU1017",
+    "Copper (PPI)": "WPU102",
+    "Aluminum (PPI)": "WPU103",
+    "Nickel (PPI)": "WPU104",
+    "Zinc (PPI)": "WPU105",
+    "Lead (PPI)": "WPU106",
+
+    # ---- Chemicals ----
+    "Industrial Chemicals (PPI)": "WPU061",
+    "Petrochemicals (PPI)": "WPU0613",
+    "Nitrogen Fertilizer (PPI)": "WPU065201",
+    "Phosphate Fertilizer (PPI)": "WPU065202",
+    "Potash Fertilizer (PPI)": "WPU065203",
+
+    # ---- Shipping / Freight ----
+    "Cass Freight Index": "FRGSHPUSM649NCIS",
+    "Rail Freight Carloads": "RAILFRTCARLOADS",
+    "Truck Transportation PPI": "PCU484484",
+    "Deep Sea Freight Transportation PPI": "PCU483111483111",
+
+    # ---- IMF Commodity Spot Prices (additional) ----
+    "Gold (IMF)": "PGOLDUSDM",
+    "Silver (IMF)": "PSILVERUSDM",
+    "Copper (IMF)": "PCOPPUSDM",
+    "Aluminum (IMF)": "PALUMUSDM",
+    "Nickel (IMF)": "PNICKUSDM",
+    "Zinc (IMF)": "PZINCUSDM",
+    "Lead (IMF)": "PLEADUSDM",
+    "Tin (IMF)": "PTINUSDM",
+    "Iron Ore (IMF)": "PIORECRUSDM",
+    "WTI Crude (IMF)": "POILWTIUSDM",
+    "Brent Crude (IMF)": "POILBREUSDM",
+    "Henry Hub Gas (IMF)": "PNGASUSUSDM",
+    "Coal (IMF)": "PCOALAUUSDM",
+    "Corn (IMF)": "PMAIZMTUSDM",
+    "Wheat (IMF)": "PWHEAMTUSDM",
+    "Soybeans (IMF)": "PSOYBUSDM",
+    "Cotton (IMF)": "PCOTTINDUSDM",
+    "Coffee (IMF)": "PCOFFOTMUSDM",
+    "Cocoa (IMF)": "PCOCOUSDM",
+    "Sugar (IMF)": "PSUGAUSAUSDM",
 }
 
 # ------------------------------------------------------------
@@ -820,6 +907,46 @@ def recommendations():
         return jsonify(results)
     except Exception as e:
         print("Recommendations error:", traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/fred')
+def get_fred():
+    try:
+        cache = load_cache()
+        gold_series = get_cached_historical('GC=F')
+        if gold_series is None or gold_series.empty:
+            return jsonify({'error': 'Gold data missing'}), 500
+
+        result = {}
+        for key, series_id in FRED_SERIES.items():
+            # The cached key for FRED data is 'hist_fred_{series_id}'
+            cache_key = f'hist_fred_{series_id}'
+            if cache_key not in cache:
+                continue
+            # Reconstruct the series from cache
+            series = get_cached_historical(cache_key.replace('hist_', ''))
+            if series is None or series.empty:
+                continue
+            common = series.index.intersection(gold_series.index)
+            if len(common) < 5:
+                continue
+            asset = series.loc[common]
+            gold = gold_series.loc[common]
+            ratio = asset / gold
+            current_ratio = ratio.iloc[-1]
+            mean_ratio = ratio.mean()
+            if mean_ratio == 0:
+                continue
+            deviation = (current_ratio - mean_ratio) / mean_ratio * 100
+            result[key] = {
+                'current_ratio': float(current_ratio),
+                'mean_ratio': float(mean_ratio),
+                'deviation': float(deviation),
+                'last_value': float(asset.iloc[-1]),
+            }
+        return jsonify(result)
+    except Exception as e:
+        print("FRED error:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
