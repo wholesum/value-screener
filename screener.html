@@ -6,7 +6,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    /* same styles as before – no changes needed */
+    /* same styles as before – no changes */
     * { box-sizing: border-box; }
     :root {
       --bg: #15181B;
@@ -77,9 +77,12 @@ const API_BASE = '';
 function App() {
   const [data, setData] = useState(null);
   const [convergenceData, setConvergenceData] = useState(null);
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Load dashboard and recommendations on mount
   const fetchAll = async () => {
     setLoading(true);
     setError(null);
@@ -97,6 +100,23 @@ function App() {
       } else {
         setConvergenceData([]);
       }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Search function
+  const runSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(API_BASE + '/api/search?q=' + encodeURIComponent(searchQuery.trim()));
+      if (!res.ok) throw new Error('Search HTTP ' + res.status);
+      const json = await res.json();
+      setSearchResults(json);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -124,11 +144,37 @@ function App() {
     return h('span', { className: 'rating-badge ' + cls }, rating);
   };
 
-  if (loading) return h('div', { className: 'wrap' }, 'Loading live data…');
+  if (loading && !data) return h('div', { className: 'wrap' }, 'Loading live data…');
   if (error) return h('div', { className: 'wrap' }, h('div', { className: 'error-box' }, 'Error: ' + error));
   if (!data) return h('div', { className: 'wrap' }, 'No data');
 
   const { sectors, currencies, commodities } = data;
+
+  // Helper: render a table of stocks (for search results)
+  const renderStockTable = (stocks) => {
+    if (!stocks || stocks.length === 0) return null;
+    return h('table', { className: 'stock-table' },
+      h('thead', null,
+        h('tr', null,
+          h('th', 'Ticker'), h('th', 'Name'), h('th', 'Price'),
+          h('th', 'P/E'), h('th', 'P/B'), h('th', 'Rating'), h('th', 'Insider %')
+        )
+      ),
+      h('tbody', null,
+        stocks.map((s, i) =>
+          h('tr', { key: i },
+            h('td', null, s.ticker),
+            h('td', { className: 'tname' }, s.name || s.ticker),
+            h('td', null, s.price ? '$' + s.price : '—'),
+            h('td', null, s.pe ?? '—'),
+            h('td', null, s.pb ?? '—'),
+            h('td', { className: 'rating-badge ' + (s.rating ? s.rating.toLowerCase().replace(' ', '-') : 'na') }, s.rating || 'N/A'),
+            h('td', null, s.insider ? s.insider + '%' : '—')
+          )
+        )
+      )
+    );
+  };
 
   const children = [
     h('div', { className: 'masthead', key: 'masthead' },
@@ -139,7 +185,80 @@ function App() {
       )
     ),
 
-    // ---- Convergence Recommendations (NEW: shows Combined Score + Rating Bonus) ----
+    // ---- Search Bar ----
+    h('div', { className: 'search-bar', key: 'search' },
+      h('input', {
+        type: 'text',
+        placeholder: 'Search ticker, sector, currency, commodity… e.g. AAPL, XLF, JPY, Gold',
+        value: searchQuery,
+        onChange: (e) => setSearchQuery(e.target.value),
+        onKeyDown: (e) => { if (e.key === 'Enter') runSearch(); }
+      }),
+      h('button', { className: 'go', onClick: runSearch, disabled: loading }, 'SEARCH')
+    ),
+
+    // ---- Search Results (if any) ----
+    searchResults && (searchResults.stocks?.length || searchResults.sectors?.length || searchResults.etfs?.length || searchResults.currencies?.length || searchResults.commodities?.length) ? h('section', { className: 'block', key: 'searchResults' },
+      h('h2', { className: 'section-title' }, 'Search Results'),
+      searchResults.stocks && searchResults.stocks.length > 0 ? h('div', null,
+        h('h3', { style: { color: 'var(--gold)' } }, 'Stocks'),
+        renderStockTable(searchResults.stocks)
+      ) : null,
+      searchResults.sectors && searchResults.sectors.length > 0 ? h('div', null,
+        h('h3', { style: { color: 'var(--gold)' } }, 'Sectors'),
+        h('table', { className: 'stock-table' },
+          h('thead', null, h('tr', null, h('th', 'Sector'), h('th', 'ETF'), h('th', 'Avg P/E'))),
+          h('tbody', null, searchResults.sectors.map((s, i) =>
+            h('tr', { key: i },
+              h('td', null, s.name),
+              h('td', null, s.etf),
+              h('td', null, s.avg_pe ?? '—')
+            )
+          ))
+        )
+      ) : null,
+      searchResults.etfs && searchResults.etfs.length > 0 ? h('div', null,
+        h('h3', { style: { color: 'var(--gold)' } }, 'ETFs'),
+        h('table', { className: 'stock-table' },
+          h('thead', null, h('tr', null, h('th', 'Ticker'), h('th', 'Sector'), h('th', 'Holdings'))),
+          h('tbody', null, searchResults.etfs.map((e, i) =>
+            h('tr', { key: i },
+              h('td', null, e.ticker),
+              h('td', null, e.sector),
+              h('td', null, (e.holdings || []).map(h => h.ticker).join(', '))
+            )
+          ))
+        )
+      ) : null,
+      searchResults.currencies && searchResults.currencies.length > 0 ? h('div', null,
+        h('h3', { style: { color: 'var(--gold)' } }, 'Currencies'),
+        h('table', { className: 'stock-table' },
+          h('thead', null, h('tr', null, h('th', 'Code'), h('th', 'Name'), h('th', 'Rate vs USD'))),
+          h('tbody', null, searchResults.currencies.map((c, i) =>
+            h('tr', { key: i },
+              h('td', null, c.code),
+              h('td', null, c.name || c.code),
+              h('td', null, c.rate_usd ?? '—')
+            )
+          ))
+        )
+      ) : null,
+      searchResults.commodities && searchResults.commodities.length > 0 ? h('div', null,
+        h('h3', { style: { color: 'var(--gold)' } }, 'Commodities'),
+        h('table', { className: 'stock-table' },
+          h('thead', null, h('tr', null, h('th', 'Name'), h('th', 'Price'), h('th', 'Gold Ratio'))),
+          h('tbody', null, searchResults.commodities.map((c, i) =>
+            h('tr', { key: i },
+              h('td', null, c.name),
+              h('td', null, c.price ? '$' + c.price : '—'),
+              h('td', null, c.gold_ratio ? c.gold_ratio.toFixed(4) : '—')
+            )
+          ))
+        )
+      ) : null
+    ) : null,
+
+    // ---- Convergence Recommendations ----
     convergenceData && convergenceData.length > 0 ? h('section', { className: 'block', key: 'convergence' },
       h('h2', { className: 'section-title' },
         '🔥 Convergence Recommendations ',
@@ -178,7 +297,7 @@ function App() {
       )
     ) : null,
 
-    // ---- Sectors (NEW: shows Analyst Rating and # Analysts) ----
+    // ---- Sectors (with ratings) ----
     h('section', { className: 'block', key: 'sectors' },
       h('h2', { className: 'section-title' }, 'Sectors (Cheapest first) ', h('span', { className: 'num' }, 'vs. historical gold-ratio mean')),
       h('table', { className: 'stock-table' },
