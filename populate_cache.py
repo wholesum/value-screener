@@ -2,8 +2,13 @@ import os
 import pickle
 import yfinance as yf
 import pandas as pd
+import requests  # <-- THIS WAS MISSING
 
-CACHE_FILE = 'cache.pkl'
+# ------------------------------------------------------------
+# FRED API CONFIGURATION
+# ------------------------------------------------------------
+FRED_API_KEY = 'a5eb5a40ad542ffb9d13f6fb6269ca08'
+FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
 
 # ------------------------------------------------------------
 # FULL DICTIONARIES – copy exactly as in app.py
@@ -86,7 +91,7 @@ SECTOR_ETFS = {
     "Timber": "WOOD",
     "Timber & Forestry": "CUT",
 
-    # ---- Foreign Country ETFs (from previous expansion) ----
+    # ---- Foreign Country ETFs ----
     "Japan (EWJ)": "EWJ",
     "China (FXI)": "FXI",
     "Brazil (EWZ)": "EWZ",
@@ -96,7 +101,7 @@ SECTOR_ETFS = {
     "Europe (VGK)": "VGK",
     "Asia-Pacific (VPL)": "VPL",
 
-    # ---- NEW Real Estate ETFs (as requested) ----
+    # ---- Real Estate ETFs ----
     "US Real Estate (VNQ)": "VNQ",
     "Global Real Estate (REET)": "REET",
     "Dow Jones REIT (IYR)": "IYR",
@@ -107,7 +112,7 @@ SECTOR_ETFS = {
     "Timber ETF (WOOD)": "WOOD",
     "Global Timber (CUT)": "CUT",
 
-    # ---- Additional Country ETFs (from your list) ----
+    # ---- Additional Country ETFs ----
     "UK (EWU)": "EWU",
     "Switzerland (EWL)": "EWL",
     "Canada (EWC)": "EWC",
@@ -246,13 +251,7 @@ COMMODITY_TICKERS = {
 }
 
 # ------------------------------------------------------------
-# FRED API CONFIGURATION
-# ------------------------------------------------------------
-FRED_API_KEY = 'a5eb5a40ad542ffb9d13f6fb6269ca08'  # <-- paste your key here
-FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
-
-# ------------------------------------------------------------
-# FRED SERIES DICTIONARIES
+# FRED SERIES DICTIONARY
 # ------------------------------------------------------------
 FRED_SERIES = {
     # ---- National House Prices ----
@@ -307,7 +306,7 @@ FRED_SERIES = {
     "Truck Transportation PPI": "PCU484484",
     "Deep Sea Freight Transportation PPI": "PCU483111483111",
 
-    # ---- IMF Commodity Spot Prices (additional) ----
+    # ---- IMF Commodity Spot Prices ----
     "Gold (IMF)": "PGOLDUSDM",
     "Silver (IMF)": "PSILVERUSDM",
     "Copper (IMF)": "PCOPPUSDM",
@@ -331,12 +330,29 @@ FRED_SERIES = {
 }
 
 # ------------------------------------------------------------
+# DOWNLOAD HISTORICAL PRICES (with fallback periods)
+# ------------------------------------------------------------
+def get_historical(ticker, periods=['max', '10y', '5y']):
+    for period in periods:
+        try:
+            data = yf.download(ticker, period=period, interval='1wk', progress=False, timeout=30)
+            if not data.empty:
+                series = data['Close'] if 'Close' in data.columns else data.iloc[:, 0]
+                if isinstance(series, pd.DataFrame):
+                    series = series.squeeze()
+                series = series.dropna()
+                if not series.empty:
+                    return series
+        except Exception as e:
+            print(f"  {ticker} with {period} failed: {e}")
+            continue
+    return None
+
+# ------------------------------------------------------------
 # FRED DATA FETCHER
 # ------------------------------------------------------------
 def get_fred_series(series_id, frequency='m'):
-    """
-    Fetch a FRED series and return a pandas Series with dates and values.
-    """
+    """Fetch a FRED series and return a pandas Series with dates and values."""
     params = {
         'series_id': series_id,
         'api_key': FRED_API_KEY,
@@ -355,7 +371,6 @@ def get_fred_series(series_id, frequency='m'):
         if not observations:
             print(f"No data for {series_id}")
             return None
-        # Extract dates and values
         dates = [pd.to_datetime(obs['date']) for obs in observations]
         values = []
         for obs in observations:
@@ -370,44 +385,19 @@ def get_fred_series(series_id, frequency='m'):
         series = pd.Series(values, index=dates).dropna()
         if series.empty:
             return None
-        # Resample to weekly to match gold frequency
         weekly = series.resample('W').last().dropna()
         return weekly
     except Exception as e:
         print(f"Error fetching FRED {series_id}: {e}")
         return None
-# ------------------------------------------------------------
-# DOWNLOAD HISTORICAL PRICES (with fallback periods)
-# ------------------------------------------------------------
-def get_historical(ticker, periods=['max', '10y', '5y']):
-    """Try multiple periods; some tickers don't support 'max'."""
-    for period in periods:
-        try:
-            data = yf.download(ticker, period=period, interval='1wk', progress=False, timeout=30)
-            if not data.empty:
-                series = data['Close'] if 'Close' in data.columns else data.iloc[:, 0]
-                if isinstance(series, pd.DataFrame):
-                    series = series.squeeze()
-                series = series.dropna()
-                if not series.empty:
-                    return series
-        except Exception as e:
-            print(f"  {ticker} with {period} failed: {e}")
-            continue
-    return None
 
 # ------------------------------------------------------------
 # COMPUTE SENTIMENT FROM PRICE SERIES (RSI + MA)
 # ------------------------------------------------------------
 def compute_sentiment(series):
-    """
-    Compute sentiment score and label from weekly price series.
-    Returns (score, label) or (None, None) if insufficient data.
-    """
     if series is None or len(series) < 52:
         return None, None
 
-    # 52-week moving average (52 weeks = ~1 year)
     ma52 = series.rolling(52).mean()
     if ma52.isna().iloc[-1]:
         return None, None
@@ -416,7 +406,6 @@ def compute_sentiment(series):
     ma52_last = ma52.iloc[-1]
     pct_from_ma = (last_price - ma52_last) / ma52_last * 100
 
-    # RSI (14 weeks)
     delta = series.diff()
     gain = delta.clip(lower=0).rolling(14).mean()
     loss = (-delta.clip(upper=0)).rolling(14).mean()
@@ -424,8 +413,6 @@ def compute_sentiment(series):
     rsi = 100 - (100 / (1 + rs))
     rsi_val = rsi.iloc[-1] if not rsi.isna().iloc[-1] else 50
 
-    # Combine: 70% weight to price vs MA, 30% to RSI
-    # Cap price deviation at +/-30%
     pct_scaled = max(-30, min(30, pct_from_ma)) / 30 * 70
     rsi_scaled = (rsi_val - 50) / 50 * 30
     score = pct_scaled + rsi_scaled
@@ -445,7 +432,7 @@ def compute_sentiment(series):
     return round(score, 1), label
 
 # ------------------------------------------------------------
-# BUILD CACHE (price history + sentiment)
+# BUILD CACHE (price history + sentiment + FRED)
 # ------------------------------------------------------------
 print("Downloading gold...")
 gold_series = get_historical('GC=F')
@@ -461,7 +448,7 @@ cache['hist_GC=F'] = {
 
 # Get all unique tickers
 all_tickers = set(SECTOR_ETFS.values()) | set(CURRENCY_TICKERS.values()) | set(COMMODITY_TICKERS.values())
-all_tickers.discard('USDUSD=X')  # skip dummy
+all_tickers.discard('USDUSD=X')
 
 # Store price series for sentiment computation later
 price_series = {}
@@ -478,18 +465,16 @@ for ticker in all_tickers:
 
 # ---- Fetch FRED data ----
 print("Fetching FRED economic data...")
-fred_series_data = {}
 for name, series_id in FRED_SERIES.items():
     print(f"  {name} ({series_id})...")
     s = get_fred_series(series_id)
     if s is not None:
-        fred_series_data[f'fred_{series_id}'] = s
         cache[f'hist_fred_{series_id}'] = {
             'data': s.values.tolist(),
             'index': s.index.strftime('%Y-%m-%d').tolist()
         }
-    
-# ---- Compute sentiment for all tickers (ETFs + currencies + commodities) ----
+
+# ---- Compute sentiment for all tickers ----
 print("Computing sentiment scores...")
 for ticker, series in price_series.items():
     score, label = compute_sentiment(series)
