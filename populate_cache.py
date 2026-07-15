@@ -246,6 +246,137 @@ COMMODITY_TICKERS = {
 }
 
 # ------------------------------------------------------------
+# FRED API CONFIGURATION
+# ------------------------------------------------------------
+FRED_API_KEY = 'a5eb5a40ad542ffb9d13f6fb6269ca08'  # <-- paste your key here
+FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
+
+# ------------------------------------------------------------
+# FRED SERIES DICTIONARIES
+# ------------------------------------------------------------
+FRED_SERIES = {
+    # ---- National House Prices ----
+    "FHFA Purchase Only HPI (US)": "PONHPIM226S",
+    "All-Transactions HPI (US)": "USSTHPI",
+    "S&P Case-Shiller National": "CSUSHPISA",
+    "S&P Case-Shiller 10-City": "SPCS10RSA",
+    "S&P Case-Shiller 20-City": "SPCS20RSA",
+    "Median Sales Price New Homes": "MSPUS",
+
+    # ---- Commercial Real Estate ----
+    "Green Street Commercial Property Price Index": "COMREPUSQ159N",
+    "Commercial Real Estate Price Index": "QUSR628BIS",
+
+    # ---- Farmland ----
+    "Farm Real Estate Value": "FRBV",
+    "Cropland Value": "CRLV",
+    "Pastureland Value": "PTLV",
+
+    # ---- Construction Materials (PPIs) ----
+    "Lumber (PPI)": "WPU081",
+    "Plywood (PPI)": "WPU082",
+    "Millwork (PPI)": "WPU083",
+    "Concrete Products (PPI)": "WPU133",
+    "Ready-Mix Concrete (PPI)": "WPU132101",
+    "Cement (PPI)": "WPU132201",
+    "Gypsum Products (PPI)": "WPU136",
+    "Flat Glass (PPI)": "WPU124",
+    "Structural Steel (PPI)": "WPU10740514",
+    "Copper Wire (PPI)": "WPU102501",
+    "Plastic Pipe (PPI)": "WPU072",
+
+    # ---- Metals PPIs ----
+    "Iron & Steel (PPI)": "WPS101",
+    "Steel Mill Products (PPI)": "WPU1017",
+    "Copper (PPI)": "WPU102",
+    "Aluminum (PPI)": "WPU103",
+    "Nickel (PPI)": "WPU104",
+    "Zinc (PPI)": "WPU105",
+    "Lead (PPI)": "WPU106",
+
+    # ---- Chemicals ----
+    "Industrial Chemicals (PPI)": "WPU061",
+    "Petrochemicals (PPI)": "WPU0613",
+    "Nitrogen Fertilizer (PPI)": "WPU065201",
+    "Phosphate Fertilizer (PPI)": "WPU065202",
+    "Potash Fertilizer (PPI)": "WPU065203",
+
+    # ---- Shipping / Freight ----
+    "Cass Freight Index": "FRGSHPUSM649NCIS",
+    "Rail Freight Carloads": "RAILFRTCARLOADS",
+    "Truck Transportation PPI": "PCU484484",
+    "Deep Sea Freight Transportation PPI": "PCU483111483111",
+
+    # ---- IMF Commodity Spot Prices (additional) ----
+    "Gold (IMF)": "PGOLDUSDM",
+    "Silver (IMF)": "PSILVERUSDM",
+    "Copper (IMF)": "PCOPPUSDM",
+    "Aluminum (IMF)": "PALUMUSDM",
+    "Nickel (IMF)": "PNICKUSDM",
+    "Zinc (IMF)": "PZINCUSDM",
+    "Lead (IMF)": "PLEADUSDM",
+    "Tin (IMF)": "PTINUSDM",
+    "Iron Ore (IMF)": "PIORECRUSDM",
+    "WTI Crude (IMF)": "POILWTIUSDM",
+    "Brent Crude (IMF)": "POILBREUSDM",
+    "Henry Hub Gas (IMF)": "PNGASUSUSDM",
+    "Coal (IMF)": "PCOALAUUSDM",
+    "Corn (IMF)": "PMAIZMTUSDM",
+    "Wheat (IMF)": "PWHEAMTUSDM",
+    "Soybeans (IMF)": "PSOYBUSDM",
+    "Cotton (IMF)": "PCOTTINDUSDM",
+    "Coffee (IMF)": "PCOFFOTMUSDM",
+    "Cocoa (IMF)": "PCOCOUSDM",
+    "Sugar (IMF)": "PSUGAUSAUSDM",
+}
+
+# ------------------------------------------------------------
+# FRED DATA FETCHER
+# ------------------------------------------------------------
+def get_fred_series(series_id, frequency='m'):
+    """
+    Fetch a FRED series and return a pandas Series with dates and values.
+    """
+    params = {
+        'series_id': series_id,
+        'api_key': FRED_API_KEY,
+        'file_type': 'json',
+        'frequency': frequency,
+        'sort_order': 'asc',
+        'units': 'lin',
+    }
+    try:
+        response = requests.get(FRED_BASE_URL, params=params, timeout=30)
+        if response.status_code != 200:
+            print(f"FRED error for {series_id}: {response.status_code}")
+            return None
+        data = response.json()
+        observations = data.get('observations', [])
+        if not observations:
+            print(f"No data for {series_id}")
+            return None
+        # Extract dates and values
+        dates = [pd.to_datetime(obs['date']) for obs in observations]
+        values = []
+        for obs in observations:
+            val = obs.get('value')
+            if val == '.':
+                values.append(None)
+            else:
+                try:
+                    values.append(float(val))
+                except:
+                    values.append(None)
+        series = pd.Series(values, index=dates).dropna()
+        if series.empty:
+            return None
+        # Resample to weekly to match gold frequency
+        weekly = series.resample('W').last().dropna()
+        return weekly
+    except Exception as e:
+        print(f"Error fetching FRED {series_id}: {e}")
+        return None
+# ------------------------------------------------------------
 # DOWNLOAD HISTORICAL PRICES (with fallback periods)
 # ------------------------------------------------------------
 def get_historical(ticker, periods=['max', '10y', '5y']):
@@ -345,6 +476,19 @@ for ticker in all_tickers:
             'index': series.index.strftime('%Y-%m-%d').tolist()
         }
 
+# ---- Fetch FRED data ----
+print("Fetching FRED economic data...")
+fred_series_data = {}
+for name, series_id in FRED_SERIES.items():
+    print(f"  {name} ({series_id})...")
+    s = get_fred_series(series_id)
+    if s is not None:
+        fred_series_data[f'fred_{series_id}'] = s
+        cache[f'hist_fred_{series_id}'] = {
+            'data': s.values.tolist(),
+            'index': s.index.strftime('%Y-%m-%d').tolist()
+        }
+    
 # ---- Compute sentiment for all tickers (ETFs + currencies + commodities) ----
 print("Computing sentiment scores...")
 for ticker, series in price_series.items():
