@@ -1,9 +1,6 @@
 import os
-
 import pickle
-
 import yfinance as yf
-
 import pandas as pd
 
 CACHE_FILE = 'cache.pkl'
@@ -346,23 +343,16 @@ COMMODITY_TICKERS = {
 }
 
 # ------------------------------------------------------------
-
-# DOWNLOAD FUNCTION
-
+# DOWNLOAD FUNCTION (unchanged)
 # ------------------------------------------------------------
-
 def get_historical(ticker):
     try:
-        # Fetch all available data at weekly resolution
         data = yf.download(ticker, period='max', interval='1wk', progress=False, timeout=30)
         if data.empty:
             return None
-        # Use 'Close' column if exists, otherwise first column
         series = data['Close'] if 'Close' in data.columns else data.iloc[:, 0]
-        # If it's a DataFrame, squeeze to Series
         if isinstance(series, pd.DataFrame):
             series = series.squeeze()
-        # Drop any remaining NaNs
         series = series.dropna()
         return series if not series.empty else None
     except Exception as e:
@@ -370,56 +360,62 @@ def get_historical(ticker):
         return None
 
 # ------------------------------------------------------------
-
-# BUILD CACHE
+# RATING FETCHER
+# ------------------------------------------------------------
+def get_etf_rating(ticker):
+    """Return (rating_label, count) for an ETF."""
+    try:
+        etf = yf.Ticker(ticker)
+        info = etf.info
+        direct = info.get('recommendationKey')
+        if direct in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
+            label = direct.replace('_', ' ').title()
+            count = info.get('numberOfAnalystOpinions', 0)
+            return label, count
+    except:
+        pass
+    return None, None
 
 # ------------------------------------------------------------
-
+# BUILD CACHE (price + ratings)
+# ------------------------------------------------------------
 print("Downloading gold...")
-
 gold_series = get_historical('GC=F')
-
 if gold_series is None:
-
     print("ERROR: Could not get gold data. Aborting.")
-
     exit(1)
 
 cache = {}
-
 cache['hist_GC=F'] = {
-
     'data': gold_series.values.tolist(),
-
     'index': gold_series.index.strftime('%Y-%m-%d').tolist()
-
 }
 
-# Get all unique tickers
-
+# ---- Prices for all tickers ----
 all_tickers = set(SECTOR_ETFS.values()) | set(CURRENCY_TICKERS.values()) | set(COMMODITY_TICKERS.values())
-
-all_tickers.discard('USDUSD=X')  # skip dummy
+all_tickers.discard('USDUSD=X')
 
 for ticker in all_tickers:
-
-    print(f"Downloading {ticker}...")
-
+    print(f"Downloading price for {ticker}...")
     series = get_historical(ticker)
-
     if series is not None:
-
         cache[f'hist_{ticker}'] = {
-
             'data': series.values.tolist(),
-
             'index': series.index.strftime('%Y-%m-%d').tolist()
-
         }
 
-with open(CACHE_FILE, 'wb') as f:
+# ---- Ratings for all ETFs (SECTOR_ETFS) ----
+print("Fetching analyst ratings for ETFs...")
+for sector_name, etf_ticker in SECTOR_ETFS.items():
+    label, count = get_etf_rating(etf_ticker)
+    if label:
+        cache[f'rating_{etf_ticker}'] = {'label': label, 'count': count}
+        print(f"  {etf_ticker}: {label} ({count} analysts)")
+    else:
+        print(f"  {etf_ticker}: N/A")
 
+# Save cache
+with open(CACHE_FILE, 'wb') as f:
     pickle.dump(cache, f)
 
 print(f"Cache saved to {CACHE_FILE} with {len(cache)} entries.")
- 
