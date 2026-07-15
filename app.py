@@ -6,6 +6,7 @@ import yfinance as yf
 import requests
 import pandas as pd
 import traceback
+from collections import Counter
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
@@ -15,7 +16,7 @@ def root():
     return send_from_directory('.', 'screener.html')
 
 # ------------------------------------------------------------
-# CACHE – ABSOLUTE PATH
+# CACHE (unchanged)
 # ------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_FILE = os.path.join(BASE_DIR, 'cache.pkl')
@@ -87,40 +88,53 @@ def get_gold_ratio(ticker):
     save_cache(cache)
     return result
 
-# ---- Rating helpers ----
-def rating_to_label(rating):
-    labels = {
-        'strong_buy': 'Strong Buy',
-        'buy': 'Buy',
-        'hold': 'Hold',
-        'sell': 'Sell',
-        'strong_sell': 'Strong Sell'
-    }
-    return labels.get(rating, 'N/A')
+# ------------------------------------------------------------
+# RATING HELPERS (using holdings aggregation)
+# ------------------------------------------------------------
+RATING_MAP = {
+    'strong_buy': 1,
+    'buy': 2,
+    'hold': 3,
+    'sell': 4,
+    'strong_sell': 5
+}
+RATING_LABELS = {v: k.replace('_', ' ').title() for k, v in RATING_MAP.items()}
 
-def rating_bonus(rating):
-    """Return a bonus score (higher = better) for convergence."""
-    bonuses = {
-        'strong_buy': 15,
-        'buy': 10,
-        'hold': 0,
-        'sell': -10,
-        'strong_sell': -15
-    }
-    return bonuses.get(rating, 0)
-
-def get_etf_analyst_rating(ticker):
-    """Fetch analyst recommendation and number of analysts for an ETF."""
+def get_holdings_rating(ticker, top_n=10):
+    """Return the most common analyst rating among top holdings."""
     try:
         etf = yf.Ticker(ticker)
-        info = etf.info
-        rating = info.get('recommendationKey')
-        analysts = info.get('numberOfAnalystOpinions')
-        if rating is None:
-            rating = 'hold'  # default fallback
-        return rating, analysts
+        holdings = etf.funds_data.get('topHoldings', [])[:top_n]
+        ratings = []
+        for h in holdings:
+            sym = h.get('symbol')
+            if sym:
+                try:
+                    stock = yf.Ticker(sym)
+                    info = stock.info
+                    rec = info.get('recommendationKey')
+                    if rec and rec in RATING_MAP:
+                        ratings.append(RATING_MAP[rec])
+                except:
+                    continue
+        if not ratings:
+            return None, None
+        # Most common rating (mode)
+        mode = Counter(ratings).most_common(1)[0][0]
+        label = RATING_LABELS.get(mode, 'N/A')
+        return label, len(ratings)
     except:
-        return 'hold', None
+        return None, None
+
+def rating_bonus(label):
+    bonuses = {
+        'Strong Buy': 15,
+        'Buy': 10,
+        'Hold': 0,
+        'Sell': -10,
+        'Strong Sell': -15
+    }
+    return bonuses.get(label, 0)
 
 # ------------------------------------------------------------
 # LISTS (sectors, currencies, commodities) – fully expanded
@@ -524,7 +538,7 @@ def get_currency_rates():
     return {}
 
 # ------------------------------------------------------------
-# ENDPOINTS
+# ENDPOINTS (updated with ratings from holdings)
 # ------------------------------------------------------------
 @app.route('/api/dashboard')
 def dashboard():
@@ -532,12 +546,11 @@ def dashboard():
         sectors = []
         for sector_name, etf_ticker in SECTOR_ETFS.items():
             pe = None
-            rating = None
-            analysts = None
+            rating_label = None
+            analysts_count = None
             try:
                 etf = yf.Ticker(etf_ticker)
-                info = etf.info
-                # P/E: we use avg P/E of top holdings (original logic)
+                # Compute average P/E from top holdings
                 holdings = etf.funds_data.get('topHoldings', [])[:10]
                 total_pe = 0
                 count = 0
@@ -550,9 +563,8 @@ def dashboard():
                             count += 1
                 if count:
                     pe = round(total_pe / count, 2)
-                # Analyst rating for the ETF itself
-                rating = info.get('recommendationKey', 'hold')
-                analysts = info.get('numberOfAnalystOpinions')
+                # Compute aggregated analyst rating
+                rating_label, analysts_count = get_holdings_rating(etf_ticker)
             except:
                 pass
             gold_info = get_gold_ratio(etf_ticker)
@@ -562,11 +574,12 @@ def dashboard():
                 'etf': etf_ticker,
                 'avg_pe': pe,
                 'cheapness': cheapness,
-                'analyst_rating': rating_to_label(rating) if rating else 'N/A',
-                'analysts': analysts if analysts else 0
+                'analyst_rating': rating_label if rating_label else 'N/A',
+                'analysts': analysts_count if analysts_count else 0
             })
         sectors.sort(key=lambda x: x['cheapness'] if x['cheapness'] is not None else 999)
 
+        # Currencies and commodities (unchanged)
         rates = get_currency_rates()
         currencies = []
         for code, ticker in CURRENCY_TICKERS.items():
@@ -608,25 +621,162 @@ def dashboard():
     except Exception as e:
         print("Dashboard error:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
-
+#search re-added
 @app.route('/api/search')
 def search():
-    # ... (keep your existing search logic unchanged) ...
-    # For brevity, I've omitted it, but you can keep the one you have.
-    pass
+    try:
+        query = request.args.get('q', '').strip().upper()
+        if not query:
+            return jsonify({'error': 'Query required'}), 400
+        response = {
+            'sectors': [], 'etfs': [], 'stocks': [],
+            'currencies': [], 'commodities': [], 'recommendations': []
+        }
 
+        # ---- Search sectors ----
+        for sector_name, etf_ticker in SECTOR_ETFS.items():
+            if query in sector_name.upper() or query in etf_ticker:
+                pe = None
+                try:
+                    etf = yf.Ticker(etf_ticker)
+                    holdings = etf.funds_data.get('topHoldings', [])[:10]
+                    total_pe = 0
+                    count = 0
+                    for h in holdings:
+                        sym = h.get('symbol')
+                        if sym:
+                            m = get_stock_metrics(sym)
+                            if m and m.get('pe'):
+                                total_pe += m['pe']
+                                count += 1
+                    if count:
+                        pe = round(total_pe / count, 2)
+                except:
+                    pass
+                response['sectors'].append({'name': sector_name, 'etf': etf_ticker, 'avg_pe': pe})
+
+        # ---- Search ETFs (with holdings) ----
+        for sector_name, etf_ticker in SECTOR_ETFS.items():
+            if query in etf_ticker or query in sector_name.upper():
+                try:
+                    etf = yf.Ticker(etf_ticker)
+                    holdings = etf.funds_data.get('topHoldings', [])[:10]
+                    holdings_data = []
+                    for h in holdings:
+                        sym = h.get('symbol')
+                        if sym:
+                            m = get_stock_metrics(sym)
+                            if m:
+                                m['ticker'] = sym
+                                holdings_data.append(m)
+                    response['etfs'].append({
+                        'ticker': etf_ticker,
+                        'sector': sector_name,
+                        'holdings': holdings_data
+                    })
+                except:
+                    pass
+
+        # ---- Search stocks (direct + watchlist) ----
+        popular = ["AAPL","MSFT","GOOGL","AMZN","META","TSLA","NVDA","JPM","V","WMT",
+                   "JNJ","PG","UNH","HD","DIS","MA","BAC","XOM","CVX","PFE"]
+        try:
+            stock = yf.Ticker(query)
+            info = stock.info
+            if info and info.get('regularMarketPrice'):
+                m = get_stock_metrics(query)
+                if m:
+                    m['ticker'] = query
+                    response['stocks'].append(m)
+        except:
+            pass
+        for t in popular:
+            if query in t:
+                m = get_stock_metrics(t)
+                if m:
+                    m['ticker'] = t
+                    response['stocks'].append(m)
+
+        # ---- Search currencies ----
+        rates = get_currency_rates()
+        for code, ticker in CURRENCY_TICKERS.items():
+            if code == "USD":
+                continue
+            if query in code:
+                rate = rates.get(code)
+                response['currencies'].append({'code': code, 'name': CURRENCY_NAMES.get(code, code), 'rate_usd': rate})
+
+        # ---- Search commodities ----
+        try:
+            gold = yf.Ticker("GC=F")
+            gold_price = gold.info.get('regularMarketPrice')
+            if gold_price:
+                for name, ticker in COMMODITY_TICKERS.items():
+                    if query in name.upper() or query in ticker:
+                        try:
+                            com = yf.Ticker(ticker)
+                            price = com.info.get('regularMarketPrice')
+                            if price:
+                                ratio = price / gold_price if gold_price else None
+                                response['commodities'].append({
+                                    'name': name,
+                                    'price': price,
+                                    'gold_ratio': ratio
+                                })
+                        except:
+                            pass
+        except:
+            pass
+
+        # ---- Build recommendations (simple scoring for stocks) ----
+        for stock in response['stocks']:
+            score = 50
+            m = stock
+            if m.get('pe') and m['pe'] > 0:
+                if m['pe'] < 10: score += 15
+                elif m['pe'] < 15: score += 10
+                elif m['pe'] < 20: score += 5
+                else: score -= 10
+            if m.get('pb') and m['pb'] > 0:
+                if m['pb'] < 1: score += 15
+                elif m['pb'] < 1.5: score += 10
+                elif m['pb'] < 2: score += 5
+                else: score -= 10
+            insider = m.get('insider')
+            if insider and insider > 5:
+                score += 10
+            elif insider and insider > 2:
+                score += 5
+            rating = m.get('rating', '').lower()
+            if 'buy' in rating:
+                score += 10
+            elif 'sell' in rating:
+                score -= 10
+            score = max(0, min(100, score))
+            response['recommendations'].append({
+                'ticker': m['ticker'],
+                'name': m.get('name', m['ticker']),
+                'score': score,
+                'metrics': m
+            })
+        response['recommendations'] = sorted(response['recommendations'], key=lambda x: x['score'], reverse=True)
+
+        return jsonify(response)
+    except Exception as e:
+        print("Search error:", traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+#search re-added
 @app.route('/api/recommendations')
 def recommendations():
     try:
-        # Build cheapness dicts (as before)
         sector_cheapness = {}
         sector_rating_bonus = {}
         for sector_name, etf_ticker in SECTOR_ETFS.items():
             gold_info = get_gold_ratio(etf_ticker)
             sector_cheapness[sector_name] = gold_info['deviation'] if gold_info else None
-            # Fetch rating for bonus
-            rating, _ = get_etf_analyst_rating(etf_ticker)
-            sector_rating_bonus[sector_name] = rating_bonus(rating)
+            # Get rating label from holdings
+            label, _ = get_holdings_rating(etf_ticker)
+            sector_rating_bonus[sector_name] = rating_bonus(label)
 
         commodity_cheapness = {}
         for com_name, ticker in COMMODITY_TICKERS.items():
@@ -653,27 +803,24 @@ def recommendations():
                 vals.append(com)
             if cur is not None:
                 vals.append(cur)
-            # Include rating bonus as an extra factor (not averaged, added)
             bonus = sector_rating_bonus.get(sector_name, 0)
-            # Compute base average of the cheapness factors
             avg_cheapness = sum(vals) / len(vals) if vals else 0
-            # Combined score = average cheapness + bonus (so rating can lift or drag)
             combined = avg_cheapness + bonus
 
             results.append({
                 'sector': sector_name,
                 'etf': SECTOR_ETFS[sector_name],
-                'convergence_score': avg_cheapness,          # original cheapness avg
-                'combined_score': combined,                  # includes rating
+                'convergence_score': avg_cheapness,
+                'combined_score': combined,
                 'sector_cheapness': sec,
                 'commodity': com_key,
                 'commodity_cheapness': com,
                 'currency': curr_code,
                 'currency_cheapness': cur,
                 'rating_bonus': bonus,
+                'analyst_rating': get_holdings_rating(SECTOR_ETFS[sector_name])[0] or 'N/A',
                 'num_factors': len(vals)
             })
-        # Sort by combined score (lowest = best overall value)
         results.sort(key=lambda x: x['combined_score'])
         return jsonify(results)
     except Exception as e:
