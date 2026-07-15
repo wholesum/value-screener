@@ -92,12 +92,12 @@ def get_gold_ratio(ticker):
 # RATING HELPERS – FIXED
 # ------------------------------------------------------------
 def get_etf_rating(ticker):
-    """Return (rating_label, count) from cache (precomputed from holdings consensus)."""
+    """Return (label, score) from cache (sentiment computed from price)."""
     cache = load_cache()
-    key = f'rating_{ticker}'
+    key = f'sentiment_{ticker}'
     if key in cache:
         data = cache[key]
-        return data.get('label'), data.get('count')
+        return data.get('label'), data.get('score')
     return None, None
     
 def rating_bonus(label):
