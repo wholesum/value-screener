@@ -7,6 +7,7 @@ from collections import Counter
 CACHE_FILE = 'cache.pkl'
 
 
+
 # ------------------------------------------------------------
 
 # FULL DICTIONARIES – copy exactly as in app.py
@@ -345,10 +346,9 @@ COMMODITY_TICKERS = {
 }
 
 # ------------------------------------------------------------
-# DOWNLOAD HISTORICAL PRICES (with fallback periods)
+# DOWNLOAD PRICES (with fallback periods)
 # ------------------------------------------------------------
 def get_historical(ticker, periods=['max', '10y', '5y']):
-    """Try multiple periods; some tickers don't support 'max'."""
     for period in periods:
         try:
             data = yf.download(ticker, period=period, interval='1wk', progress=False, timeout=30)
@@ -365,40 +365,43 @@ def get_historical(ticker, periods=['max', '10y', '5y']):
     return None
 
 # ------------------------------------------------------------
-# COMPUTE CONSENSUS RATING FROM HOLDINGS (FIXED)
+# COMPUTE SENTIMENT FROM PRICE SERIES
 # ------------------------------------------------------------
-def get_holdings_rating(ticker, top_n=10):
-    """
-    Return (consensus_label, count_of_holdings_used) for an ETF.
-    """
-    try:
-        etf = yf.Ticker(ticker)
-        # Access funds_data directly – it's an object, not a dict
-        funds = etf.funds_data
-        if funds is None or not hasattr(funds, 'topHoldings'):
-            return None, None
-        holdings = funds.topHoldings[:top_n] if funds.topHoldings else []
-        ratings = []
-        for h in holdings:
-            sym = h.get('symbol')
-            if sym:
-                try:
-                    stock = yf.Ticker(sym)
-                    rec = stock.info.get('recommendationKey')
-                    if rec in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
-                        ratings.append(rec)
-                except:
-                    continue
-        if ratings:
-            mode = Counter(ratings).most_common(1)[0][0]
-            label = mode.replace('_', ' ').title()
-            return label, len(ratings)
-    except Exception as e:
-        print(f"Error getting holdings rating for {ticker}: {e}")
-    return None, None
+def compute_sentiment(series):
+    if series is None or len(series) < 20:
+        return None, None
+    ma52 = series.rolling(52).mean()
+    if ma52.isna().iloc[-1]:
+        return None, None
+    last_price = series.iloc[-1]
+    ma52_last = ma52.iloc[-1]
+    pct_from_ma = (last_price - ma52_last) / ma52_last * 100
+    pct_scaled = max(-30, min(30, pct_from_ma)) / 30 * 70
+
+    delta = series.diff()
+    gain = delta.clip(lower=0).rolling(14).mean()
+    loss = (-delta.clip(upper=0)).rolling(14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    rsi_val = rsi.iloc[-1] if not rsi.isna().iloc[-1] else 50
+    rsi_scaled = (rsi_val - 50) / 50 * 30
+    score = pct_scaled + rsi_scaled
+    score = max(-100, min(100, score))
+
+    if score > 40:
+        label = 'Strong Buy'
+    elif score > 20:
+        label = 'Buy'
+    elif score > -20:
+        label = 'Hold'
+    elif score > -40:
+        label = 'Sell'
+    else:
+        label = 'Strong Sell'
+    return round(score, 1), label
 
 # ------------------------------------------------------------
-# BUILD CACHE (price + ratings)
+# BUILD CACHE
 # ------------------------------------------------------------
 print("Downloading gold...")
 gold_series = get_historical('GC=F')
@@ -412,29 +415,31 @@ cache['hist_GC=F'] = {
     'index': gold_series.index.strftime('%Y-%m-%d').tolist()
 }
 
-# ---- Prices for all tickers ----
 all_tickers = set(SECTOR_ETFS.values()) | set(CURRENCY_TICKERS.values()) | set(COMMODITY_TICKERS.values())
 all_tickers.discard('USDUSD=X')
+
+# Store price series for sentiment computation
+price_series = {}
 
 for ticker in all_tickers:
     print(f"Downloading price for {ticker}...")
     series = get_historical(ticker)
     if series is not None:
+        price_series[ticker] = series
         cache[f'hist_{ticker}'] = {
             'data': series.values.tolist(),
             'index': series.index.strftime('%Y-%m-%d').tolist()
         }
 
-# ---- Consensus ratings for all ETFs (SECTOR_ETFS) ----
-print("Fetching consensus analyst ratings from holdings for ETFs...")
-for sector_name, etf_ticker in SECTOR_ETFS.items():
-    print(f"  Computing rating for {etf_ticker}...")
-    label, count = get_holdings_rating(etf_ticker)
+# Compute sentiment for all tickers (ETFs + currencies)
+print("Computing sentiment for all tickers...")
+for ticker, series in price_series.items():
+    score, label = compute_sentiment(series)
     if label:
-        cache[f'rating_{etf_ticker}'] = {'label': label, 'count': count}
-        print(f"    {etf_ticker}: {label} (based on {count} holdings)")
+        cache[f'sentiment_{ticker}'] = {'score': score, 'label': label}
+        print(f"  {ticker}: {label} (score: {score})")
     else:
-        print(f"    {etf_ticker}: N/A (no ratings found in holdings)")
+        print(f"  {ticker}: N/A (insufficient data)")
 
 # Save cache
 with open(CACHE_FILE, 'wb') as f:
