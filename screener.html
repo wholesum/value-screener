@@ -6,6 +6,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
+    /* same styles as before – no changes needed */
     * { box-sizing: border-box; }
     :root {
       --bg: #15181B;
@@ -52,6 +53,14 @@
     .cheap-badge.expensive { background:var(--rich-dim); color:var(--rich); }
     .cheap-badge.neutral { background:var(--hairline); color:var(--ink-muted); }
 
+    .rating-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:9px; font-weight:600; }
+    .rating-badge.strong-buy { background:#1a4a1a; color:#6fcf97; }
+    .rating-badge.buy { background:#1a4a1a; color:#6fcf97; opacity:0.7; }
+    .rating-badge.hold { background:#4a4a1a; color:#f2c94a; }
+    .rating-badge.sell { background:#4a1a1a; color:#eb5757; }
+    .rating-badge.strong-sell { background:#4a1a1a; color:#eb5757; opacity:0.7; }
+    .rating-badge.na { background:var(--hairline); color:var(--ink-muted); }
+
     .disclaimer { margin-top:40px; padding-top:16px; border-top:1px solid var(--hairline); font-size:11px; color:var(--ink-muted); }
   </style>
 </head>
@@ -63,7 +72,6 @@
 const { useState, useEffect } = React;
 const h = React.createElement;
 
-// Use relative path – works on any domain
 const API_BASE = '';
 
 function App() {
@@ -110,6 +118,12 @@ function App() {
     return h('span', { className: 'cheap-badge ' + cls }, label);
   };
 
+  const ratingBadge = (rating) => {
+    if (!rating || rating === 'N/A') return h('span', { className: 'rating-badge na' }, 'N/A');
+    const cls = rating.toLowerCase().replace(' ', '-');
+    return h('span', { className: 'rating-badge ' + cls }, rating);
+  };
+
   if (loading) return h('div', { className: 'wrap' }, 'Loading live data…');
   if (error) return h('div', { className: 'wrap' }, h('div', { className: 'error-box' }, 'Error: ' + error));
   if (!data) return h('div', { className: 'wrap' }, 'No data');
@@ -120,36 +134,40 @@ function App() {
     h('div', { className: 'masthead', key: 'masthead' },
       h('div', null, h('div', { className: 'kicker' }, 'Global Macro Deep Value Screen'), h('h1', null, 'Value Desk')),
       h('div', { className: 'masthead-actions' },
-        h('div', { className: 'meta' }, 'Live ranking based on gold-adjusted historical deviation'),
+        h('div', { className: 'meta' }, 'Live ranking based on gold-adjusted historical deviation + analyst ratings'),
         h('button', { className: 'run', onClick: fetchAll, disabled: loading }, 'REFRESH ALL')
       )
     ),
 
-    // ---- Convergence Recommendations ----
+    // ---- Convergence Recommendations (NEW: shows Combined Score + Rating Bonus) ----
     convergenceData && convergenceData.length > 0 ? h('section', { className: 'block', key: 'convergence' },
       h('h2', { className: 'section-title' },
         '🔥 Convergence Recommendations ',
-        h('span', { className: 'num' }, '(sector + commodity + currency all cheap vs gold)')
+        h('span', { className: 'num' }, '(sector + commodity + currency + analyst rating)')
       ),
       h('p', { className: 'section-sub' },
-        'Sectors where the underlying ETF, its primary commodity, and its primary currency are all historically undervalued relative to gold. Lower convergence score = stronger multi‑factor value signal.'
+        'Sectors where the underlying ETF, its primary commodity, and its primary currency are all undervalued vs gold. ' +
+        'Combined Score = average cheapness + rating bonus (Strong Buy: +15, Buy: +10, Hold: 0, Sell: -10, Strong Sell: -15). Lower is better.'
       ),
       h('table', { className: 'stock-table' },
         h('thead', null,
           h('tr', null,
-            h('th', 'Sector'), h('th', 'ETF'), h('th', 'Convergence Score'),
-            h('th', 'Sector Cheap%'), h('th', 'Commodity'), h('th', 'Commodity Cheap%'),
+            h('th', 'Sector'), h('th', 'ETF'), h('th', 'Combined Score'),
+            h('th', 'Avg Cheap%'), h('th', 'Rating Bonus'), h('th', 'Analyst Rating'),
+            h('th', 'Commodity'), h('th', 'Commodity Cheap%'),
             h('th', 'Currency'), h('th', 'Currency Cheap%')
           )
         ),
         h('tbody', null,
           convergenceData.map((row, i) => {
-            const scoreColor = row.convergence_score < -10 ? 'var(--cheap)' : (row.convergence_score < 0 ? 'var(--gold)' : 'var(--rich)');
+            const scoreColor = row.combined_score < -10 ? 'var(--cheap)' : (row.combined_score < 0 ? 'var(--gold)' : 'var(--rich)');
             return h('tr', { key: i },
               h('td', null, row.sector),
               h('td', null, row.etf),
-              h('td', { style: { fontWeight: 'bold', color: scoreColor } }, row.convergence_score.toFixed(1) + '%'),
-              h('td', null, row.sector_cheapness?.toFixed(1) ?? '—'),
+              h('td', { style: { fontWeight: 'bold', color: scoreColor } }, row.combined_score.toFixed(1) + '%'),
+              h('td', null, row.convergence_score?.toFixed(1) ?? '—'),
+              h('td', null, row.rating_bonus !== undefined ? (row.rating_bonus > 0 ? '+' : '') + row.rating_bonus : '—'),
+              h('td', null, ratingBadge(row.analyst_rating || 'N/A')),
               h('td', null, row.commodity || '—'),
               h('td', null, row.commodity_cheapness?.toFixed(1) ?? '—'),
               h('td', null, row.currency || '—'),
@@ -160,17 +178,23 @@ function App() {
       )
     ) : null,
 
-    // ---- Sectors ----
+    // ---- Sectors (NEW: shows Analyst Rating and # Analysts) ----
     h('section', { className: 'block', key: 'sectors' },
       h('h2', { className: 'section-title' }, 'Sectors (Cheapest first) ', h('span', { className: 'num' }, 'vs. historical gold-ratio mean')),
       h('table', { className: 'stock-table' },
-        h('thead', null, h('tr', null, h('th', 'Sector'), h('th', 'ETF'), h('th', 'Avg P/E'), h('th', 'Cheapness'))),
+        h('thead', null, h('tr', null,
+          h('th', 'Sector'), h('th', 'ETF'), h('th', 'Avg P/E'),
+          h('th', 'Analyst Rating'), h('th', '# Analysts'),
+          h('th', 'Cheapness')
+        )),
         h('tbody', null,
           sectors.map((s, i) =>
             h('tr', { key: i },
               h('td', null, s.sector),
               h('td', null, s.etf),
               h('td', null, s.avg_pe ?? '—'),
+              h('td', null, ratingBadge(s.analyst_rating || 'N/A')),
+              h('td', null, s.analysts ?? '—'),
               h('td', null, cheapnessBadge(s.cheapness))
             )
           )
@@ -178,7 +202,7 @@ function App() {
       )
     ),
 
-    // ---- Currencies (now with name column) ----
+    // ---- Currencies ----
     h('section', { className: 'block', key: 'currencies' },
       h('h2', { className: 'section-title' }, 'Currencies (Cheapest first) ', h('span', { className: 'num' }, 'vs. historical gold-ratio mean')),
       h('table', { className: 'stock-table' },
@@ -215,7 +239,7 @@ function App() {
     ),
 
     h('div', { className: 'disclaimer', key: 'disc' },
-      'Cheapness = deviation from 5‑year average of price/gold ratio. Negative = cheaper. Data from Yahoo Finance.'
+      'Cheapness = deviation from 5‑year average of price/gold ratio. Negative = cheaper. Analyst ratings from Yahoo Finance.'
     )
   ];
 
