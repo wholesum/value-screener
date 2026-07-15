@@ -357,6 +357,25 @@ function App() {
       )
     ),
 
+<!-- ---- FRED Economic Data ---- -->
+<section class="block">
+  <h2 class="section-title">FRED Economic Data <span class="num">(cheapness vs gold)</span></h2>
+  <table class="stock-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Last Value</th>
+        <th>Current Ratio</th>
+        <th>Mean Ratio</th>
+        <th>Cheapness</th>
+      </tr>
+    </thead>
+    <tbody id="fred-table-body">
+      <!-- populated by JavaScript -->
+    </tbody>
+  </table>
+</section>
+    
     h('div', { className: 'disclaimer', key: 'disc' },
       'Cheapness = deviation from 5‑year average of price/gold ratio. Negative = cheaper. Analyst ratings from Yahoo Finance.'
     )
