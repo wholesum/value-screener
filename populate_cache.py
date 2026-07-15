@@ -345,24 +345,27 @@ COMMODITY_TICKERS = {
 }
 
 # ------------------------------------------------------------
-# DOWNLOAD HISTORICAL PRICES
+# DOWNLOAD HISTORICAL PRICES (with fallback periods)
 # ------------------------------------------------------------
-def get_historical(ticker):
-    try:
-        data = yf.download(ticker, period='max', interval='1wk', progress=False, timeout=30)
-        if data.empty:
-            return None
-        series = data['Close'] if 'Close' in data.columns else data.iloc[:, 0]
-        if isinstance(series, pd.DataFrame):
-            series = series.squeeze()
-        series = series.dropna()
-        return series if not series.empty else None
-    except Exception as e:
-        print(f"Error downloading {ticker}: {e}")
-        return None
+def get_historical(ticker, periods=['max', '10y', '5y']):
+    """Try multiple periods; some tickers don't support 'max'."""
+    for period in periods:
+        try:
+            data = yf.download(ticker, period=period, interval='1wk', progress=False, timeout=30)
+            if not data.empty:
+                series = data['Close'] if 'Close' in data.columns else data.iloc[:, 0]
+                if isinstance(series, pd.DataFrame):
+                    series = series.squeeze()
+                series = series.dropna()
+                if not series.empty:
+                    return series
+        except Exception as e:
+            print(f"  {ticker} with {period} failed: {e}")
+            continue
+    return None
 
 # ------------------------------------------------------------
-# COMPUTE CONSENSUS RATING FROM HOLDINGS
+# COMPUTE CONSENSUS RATING FROM HOLDINGS (FIXED)
 # ------------------------------------------------------------
 def get_holdings_rating(ticker, top_n=10):
     """
@@ -370,7 +373,11 @@ def get_holdings_rating(ticker, top_n=10):
     """
     try:
         etf = yf.Ticker(ticker)
-        holdings = etf.funds_data.get('topHoldings', [])[:top_n]
+        # Access funds_data directly – it's an object, not a dict
+        funds = etf.funds_data
+        if funds is None or not hasattr(funds, 'topHoldings'):
+            return None, None
+        holdings = funds.topHoldings[:top_n] if funds.topHoldings else []
         ratings = []
         for h in holdings:
             sym = h.get('symbol')
@@ -383,7 +390,6 @@ def get_holdings_rating(ticker, top_n=10):
                 except:
                     continue
         if ratings:
-            # Most common rating
             mode = Counter(ratings).most_common(1)[0][0]
             label = mode.replace('_', ' ').title()
             return label, len(ratings)
