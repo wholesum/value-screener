@@ -2,8 +2,10 @@ import os
 import pickle
 import yfinance as yf
 import pandas as pd
+from collections import Counter
 
 CACHE_FILE = 'cache.pkl'
+
 
 # ------------------------------------------------------------
 
@@ -343,7 +345,7 @@ COMMODITY_TICKERS = {
 }
 
 # ------------------------------------------------------------
-# DOWNLOAD FUNCTION (unchanged)
+# DOWNLOAD HISTORICAL PRICES
 # ------------------------------------------------------------
 def get_historical(ticker):
     try:
@@ -360,20 +362,33 @@ def get_historical(ticker):
         return None
 
 # ------------------------------------------------------------
-# RATING FETCHER
+# COMPUTE CONSENSUS RATING FROM HOLDINGS
 # ------------------------------------------------------------
-def get_etf_rating(ticker):
-    """Return (rating_label, count) for an ETF."""
+def get_holdings_rating(ticker, top_n=10):
+    """
+    Return (consensus_label, count_of_holdings_used) for an ETF.
+    """
     try:
         etf = yf.Ticker(ticker)
-        info = etf.info
-        direct = info.get('recommendationKey')
-        if direct in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
-            label = direct.replace('_', ' ').title()
-            count = info.get('numberOfAnalystOpinions', 0)
-            return label, count
-    except:
-        pass
+        holdings = etf.funds_data.get('topHoldings', [])[:top_n]
+        ratings = []
+        for h in holdings:
+            sym = h.get('symbol')
+            if sym:
+                try:
+                    stock = yf.Ticker(sym)
+                    rec = stock.info.get('recommendationKey')
+                    if rec in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
+                        ratings.append(rec)
+                except:
+                    continue
+        if ratings:
+            # Most common rating
+            mode = Counter(ratings).most_common(1)[0][0]
+            label = mode.replace('_', ' ').title()
+            return label, len(ratings)
+    except Exception as e:
+        print(f"Error getting holdings rating for {ticker}: {e}")
     return None, None
 
 # ------------------------------------------------------------
@@ -404,15 +419,16 @@ for ticker in all_tickers:
             'index': series.index.strftime('%Y-%m-%d').tolist()
         }
 
-# ---- Ratings for all ETFs (SECTOR_ETFS) ----
-print("Fetching analyst ratings for ETFs...")
+# ---- Consensus ratings for all ETFs (SECTOR_ETFS) ----
+print("Fetching consensus analyst ratings from holdings for ETFs...")
 for sector_name, etf_ticker in SECTOR_ETFS.items():
-    label, count = get_etf_rating(etf_ticker)
+    print(f"  Computing rating for {etf_ticker}...")
+    label, count = get_holdings_rating(etf_ticker)
     if label:
         cache[f'rating_{etf_ticker}'] = {'label': label, 'count': count}
-        print(f"  {etf_ticker}: {label} ({count} analysts)")
+        print(f"    {etf_ticker}: {label} (based on {count} holdings)")
     else:
-        print(f"  {etf_ticker}: N/A")
+        print(f"    {etf_ticker}: N/A (no ratings found in holdings)")
 
 # Save cache
 with open(CACHE_FILE, 'wb') as f:
