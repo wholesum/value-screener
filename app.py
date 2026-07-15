@@ -92,11 +92,15 @@ def get_gold_ratio(ticker):
 # RATING HELPERS – FIXED
 # ------------------------------------------------------------
 def get_etf_rating(ticker):
-    """
-    Return (rating_label, count) for an ETF.
-    Tries: 1) ETF's own recommendationKey, 2) consensus from top 10 holdings.
-    """
-    # 1) Direct ETF rating
+    """Return (rating_label, count) from cache, or fetch live."""
+    # 1) Try cache first
+    cache = load_cache()
+    key = f'rating_{ticker}'
+    if key in cache:
+        data = cache[key]
+        return data.get('label'), data.get('count')
+
+    # 2) Live fetch (if not cached)
     try:
         etf = yf.Ticker(ticker)
         info = etf.info
@@ -104,10 +108,13 @@ def get_etf_rating(ticker):
         if direct in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
             label = direct.replace('_', ' ').title()
             count = info.get('numberOfAnalystOpinions', 0)
-            print(f"Direct rating for {ticker}: {label} ({count} analysts)")  # debug
+            # Store in cache for future
+            cache[key] = {'label': label, 'count': count}
+            save_cache(cache)
             return label, count
-    except Exception as e:
-        print(f"Error getting direct rating for {ticker}: {e}")
+    except:
+        pass
+    return None, None
 
     # 2) Holdings consensus
     try:
