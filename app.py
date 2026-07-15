@@ -8,6 +8,47 @@ import pandas as pd
 import traceback
 from collections import Counter
 
+def get_etf_rating(ticker):
+    """
+    Return (rating_label, count) for an ETF.
+    First try the ETF's own recommendationKey, then compute from holdings.
+    """
+    try:
+        etf = yf.Ticker(ticker)
+        info = etf.info
+        # 1) Try direct recommendationKey
+        direct = info.get('recommendationKey')
+        if direct and direct in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
+            label = direct.replace('_', ' ').title()
+            return label, info.get('numberOfAnalystOpinions', 0)
+    except:
+        pass
+    # 2) Fallback to holdings consensus
+    try:
+        etf = yf.Ticker(ticker)
+        holdings = etf.funds_data.get('topHoldings', [])[:10]
+        ratings = []
+        for h in holdings:
+            sym = h.get('symbol')
+            if sym:
+                try:
+                    stock = yf.Ticker(sym)
+                    rec = stock.info.get('recommendationKey')
+                    if rec in ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell']:
+                        ratings.append(rec)
+                except:
+                    continue
+        if ratings:
+            # Most common rating
+            from collections import Counter
+            mode = Counter(ratings).most_common(1)[0][0]
+            label = mode.replace('_', ' ').title()
+            return label, len(ratings)
+    except:
+        pass
+    return None, None
+
+
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
@@ -564,7 +605,7 @@ def dashboard():
                 if count:
                     pe = round(total_pe / count, 2)
                 # Compute aggregated analyst rating
-                rating_label, analysts_count = get_holdings_rating(etf_ticker)
+                rating_label, analysts_count = get_etf_rating(etf_ticker)
             except:
                 pass
             gold_info = get_gold_ratio(etf_ticker)
