@@ -512,7 +512,7 @@ CONVERGENCE_MAP = {
     # ---- NEW: Commodity ETFs ----
     "Broad Commodities": ("WTI Crude Oil", "USD"),
     "Commodities (DJP)": ("WTI Crude Oil", "USD"),
-    "Oil (USO)": ("WTI Crude Oil", "USD"),
+    #"Oil (USO)": ("WTI Crude Oil", "USD"),
     "Natural Gas (UNG)": ("Natural Gas", "USD"),
     "Gold (GLD)": ("Gold", "USD"),
     "Silver (SLV)": ("Silver", "USD"),
