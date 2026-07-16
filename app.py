@@ -946,21 +946,22 @@ def recommendations():
                 continue
             avg_cheapness = sum(vals) / len(vals)
 
-            label, score = sector_sentiment.get(sector_name, (None, None))
-            bonus = rating_bonus(label) if label else 0
-            combined = avg_cheapness + bonus
-
+            # ---- REMOVE RATING BONUS ----
+            # combined_score is now just the average cheapness
+            combined_score = avg_cheapness
+            # Keep analyst rating as a separate field, but no bonus
+            label, _ = sector_sentiment.get(sector_name, (None, None))
             results.append({
                 'sector': sector_name,
                 'etf': SECTOR_ETFS[sector_name],
                 'convergence_score': avg_cheapness,
-                'combined_score': combined,
+                'combined_score': combined_score,
                 'sector_cheapness': sec,
                 'commodity': com_key,
                 'commodity_cheapness': com,
                 'currency': curr_code,
                 'currency_cheapness': cur,
-                'rating_bonus': bonus,
+                'rating_bonus': 0,               # set to 0 (no adjustment)
                 'analyst_rating': label if label else 'N/A',
                 'num_factors': len(vals)
             })
