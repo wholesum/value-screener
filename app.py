@@ -257,7 +257,7 @@ SECTOR_ETFS = {
     "Broad Commodities": "DBC",
     "Commodities (DJP)": "DJP",
     "Oil (USO)": "USO",
-    "Natural Gas (UNG)": "UNG",
+    #"Natural Gas (UNG)": "UNG",
     "Gold (GLD)": "GLD",
     "Silver (SLV)": "SLV",
     "Copper (CPER)": "CPER",
