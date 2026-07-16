@@ -130,10 +130,10 @@ def rating_bonus(label):
     return bonuses.get(label, 0)
 
 # ------------------------------------------------------------
-# LISTS (sectors, currencies, commodities)
+# LISTS (sectors, currencies, commodities) – cleaned & expanded
 # ------------------------------------------------------------
 SECTOR_ETFS = {
-    # ---- Existing sectors (unchanged) ----
+    # ---- Energy ----
     "Energy (S&P)": "XLE",
     "Oil Exploration (E&P)": "XOP",
     "Oil Services": "OIH",
@@ -142,6 +142,8 @@ SECTOR_ETFS = {
     "Natural Gas Producers": "FCG",
     "Refiners": "CRAK",
     "Uranium": "URA",
+
+    # ---- Metals & Mining ----
     "Metals & Mining": "XME",
     "Global Miners": "PICK",
     "Copper Miners": "COPX",
@@ -155,6 +157,8 @@ SECTOR_ETFS = {
     "Battery Materials": "BATT",
     "Steel": "SLX",
     "Agriculture/Fertilizer": "MOO",
+
+    # ---- Technology ----
     "Technology (S&P)": "XLK",
     "Semiconductors (SMH)": "SMH",
     "Semiconductors (SOXX)": "SOXX",
@@ -168,17 +172,23 @@ SECTOR_ETFS = {
     "Internet (FDN)": "FDN",
     "Software (XSW)": "XSW",
     "Cybersecurity (CIBR)": "CIBR",
+
+    # ---- Financials ----
     "Financials (S&P)": "XLF",
     "Regional Banks": "KRE",
     "Banks": "KBE",
     "Insurance": "KIE",
     "Brokers": "IAI",
     "Financial Services": "IYG",
+
+    # ---- Healthcare ----
     "Healthcare (S&P)": "XLV",
     "Biotech (equal weight)": "XBI",
     "Biotech (IBB)": "IBB",
     "Medical Devices": "IHI",
     "Pharmaceuticals": "PJP",
+
+    # ---- Industrials ----
     "Industrials (S&P)": "XLI",
     "Infrastructure": "PAVE",
     "Aerospace & Defense": "ITA",
@@ -187,6 +197,8 @@ SECTOR_ETFS = {
     "Transportation": "IYT",
     "Airlines": "JETS",
     "Autos": "CARZ",
+
+    # ---- Consumer ----
     "Consumer Discretionary (S&P)": "XLY",
     "Consumer Staples (S&P)": "XLP",
     "Retail": "XRT",
@@ -194,21 +206,32 @@ SECTOR_ETFS = {
     "Leisure & Entertainment": "PEJ",
     "Hotels": "BEDZ",
     "Travel": "AWAY",
+
+    # ---- Real Estate (consolidated) ----
     "Real Estate (S&P)": "XLRE",
-    "REITs (VNQ)": "VNQ",
-    "U.S. REITs": "IYR",
+    "US REITs": "VNQ",           # VNQ is the main REIT ETF
     "Residential REITs": "REZ",
+    "Global Real Estate": "REET",
+    "Homebuilders": "ITB",
+    "Homebuilders 2": "XHB",
+    "Mortgage REITs": "REM",
+
+    # ---- Materials ----
+    "Materials (S&P)": "XLB",
+    "Global Materials": "MXI",
+    "Timber & Forestry": "WOOD",  # WOOD is the main timber ETF
+    "Timber 2": "CUT",           # Keep CUT if desired – already in the dict
+
+    # ---- Communications ----
     "Communication Services": "XLC",
     "Telecom & Media": "VOX",
     "Esports": "HERO",
     "Video Gaming": "ESPO",
+
+    # ---- Utilities ----
     "Utilities (S&P)": "XLU",
     "Utilities (VPU)": "VPU",
     "Electric Grid": "GRID",
-    "Materials (S&P)": "XLB",
-    "Global Materials": "MXI",
-    "Timber": "WOOD",
-    "Timber & Forestry": "CUT",
 
     # ---- Foreign Country ETFs ----
     "Japan (EWJ)": "EWJ",
@@ -219,17 +242,6 @@ SECTOR_ETFS = {
     "Developed ex-US (EFA)": "EFA",
     "Europe (VGK)": "VGK",
     "Asia-Pacific (VPL)": "VPL",
-
-    # ---- Real Estate ETFs ----
-    "US Real Estate (VNQ)": "VNQ",
-    "Global Real Estate (REET)": "REET",
-    "Dow Jones REIT (IYR)": "IYR",
-    "Schwab REIT (SCHH)": "SCHH",
-    "Homebuilders ETF": "ITB",
-    "Homebuilders ETF 2 (XHB)": "XHB",
-    "Mortgage REIT ETF (REM)": "REM",
-    "Timber ETF (WOOD)": "WOOD",
-    "Global Timber (CUT)": "CUT",
 
     # ---- Additional Country ETFs ----
     "UK (EWU)": "EWU",
@@ -264,6 +276,17 @@ SECTOR_ETFS = {
     "Eurozone (EZU)": "EZU",
     "China A (KBA)": "KBA",
     "China (CNYA)": "CNYA",
+
+    # ---- NEW: Commodity ETFs ----
+    "Broad Commodities": "DBC",
+    "Commodities (DJP)": "DJP",
+    "Oil (USO)": "USO",
+    "Natural Gas (UNG)": "UNG",
+    "Gold (GLD)": "GLD",
+    "Silver (SLV)": "SLV",
+    "Copper (CPER)": "CPER",
+    "Platinum (PPLT)": "PPLT",
+    "Palladium (PALL)": "PALL",
 }
 
 CURRENCY_NAMES = {
@@ -334,10 +357,7 @@ COMMODITY_TICKERS = {
     "Palladium": "PA=F",
     "Copper (COMEX)": "HG=F",
     "Aluminum": "ALI=F",
-    "Nickel": "NICKEL=F",
-    "Zinc": "ZINC=F",
-    "Lead": "LEAD=F",
-    "Tin": "TIN=F",
+    # Nickel, Zinc, Lead, Tin removed – delisted
     "Hot Rolled Coil Steel": "HRC=F",
     "Iron Ore 62%": "TIO=F",
     "WTI Crude Oil": "CL=F",
@@ -345,11 +365,11 @@ COMMODITY_TICKERS = {
     "Natural Gas": "NG=F",
     "Heating Oil": "HO=F",
     "RBOB Gasoline": "RB=F",
-    "Low Sulfur Gasoil": "QS=F",
+    # Low Sulfur Gasoil (QS=F) removed – delisted
     "Corn": "ZC=F",
     "Wheat (Chicago)": "ZW=F",
     "Kansas Wheat": "KE=F",
-    "Minneapolis Wheat": "MWE=F",
+    # Minneapolis Wheat (MWE=F) removed – delisted
     "Soybeans": "ZS=F",
     "Soybean Meal": "ZM=F",
     "Soybean Oil": "ZL=F",
@@ -370,6 +390,7 @@ COMMODITY_TICKERS = {
 }
 
 CONVERGENCE_MAP = {
+    # ---- Energy ----
     "Energy (S&P)": ("WTI Crude Oil", "CAD"),
     "Oil Exploration (E&P)": ("WTI Crude Oil", "CAD"),
     "Oil Services": ("WTI Crude Oil", "CAD"),
@@ -378,6 +399,8 @@ CONVERGENCE_MAP = {
     "Natural Gas Producers": ("Natural Gas", "CAD"),
     "Refiners": ("WTI Crude Oil", "CAD"),
     "Uranium": (None, None),
+
+    # ---- Metals & Mining ----
     "Metals & Mining": ("Copper (COMEX)", "AUD"),
     "Global Miners": ("Copper (COMEX)", "AUD"),
     "Copper Miners": ("Copper (COMEX)", "AUD"),
@@ -390,7 +413,11 @@ CONVERGENCE_MAP = {
     "Lithium": (None, None),
     "Battery Materials": ("Copper (COMEX)", "AUD"),
     "Steel": ("Hot Rolled Coil Steel", "USD"),
+
+    # ---- Agriculture ----
     "Agriculture/Fertilizer": ("Corn", "USD"),
+
+    # ---- Technology ----
     "Technology (S&P)": (None, "USD"),
     "Semiconductors (SMH)": (None, "USD"),
     "Semiconductors (SOXX)": (None, "USD"),
@@ -404,17 +431,23 @@ CONVERGENCE_MAP = {
     "Internet (FDN)": (None, "USD"),
     "Software (XSW)": (None, "USD"),
     "Cybersecurity (CIBR)": (None, "USD"),
+
+    # ---- Financials ----
     "Financials (S&P)": (None, "USD"),
     "Regional Banks": (None, "USD"),
     "Banks": (None, "USD"),
     "Insurance": (None, "USD"),
     "Brokers": (None, "USD"),
     "Financial Services": (None, "USD"),
+
+    # ---- Healthcare ----
     "Healthcare (S&P)": (None, "USD"),
     "Biotech (equal weight)": (None, "USD"),
     "Biotech (IBB)": (None, "USD"),
     "Medical Devices": (None, "USD"),
     "Pharmaceuticals": (None, "USD"),
+
+    # ---- Industrials ----
     "Industrials (S&P)": (None, "USD"),
     "Infrastructure": ("Copper (COMEX)", "USD"),
     "Aerospace & Defense": (None, "USD"),
@@ -423,6 +456,8 @@ CONVERGENCE_MAP = {
     "Transportation": ("WTI Crude Oil", "USD"),
     "Airlines": ("WTI Crude Oil", "USD"),
     "Autos": (None, "USD"),
+
+    # ---- Consumer ----
     "Consumer Discretionary (S&P)": (None, "USD"),
     "Consumer Staples (S&P)": (None, "USD"),
     "Retail": (None, "USD"),
@@ -430,30 +465,34 @@ CONVERGENCE_MAP = {
     "Leisure & Entertainment": (None, "USD"),
     "Hotels": (None, "USD"),
     "Travel": (None, "USD"),
+
+    # ---- Real Estate (consolidated) ----
     "Real Estate (S&P)": (None, "USD"),
-    "REITs (VNQ)": ("Lumber", "USD"),
-    "U.S. REITs": ("Lumber", "USD"),
+    "US REITs": ("Lumber", "USD"),
     "Residential REITs": ("Lumber", "USD"),
-    "US Real Estate (VNQ)": ("Lumber", "USD"),
-    "Global Real Estate (REET)": (None, "USD"),
-    "Dow Jones REIT (IYR)": ("Lumber", "USD"),
-    "Schwab REIT (SCHH)": ("Lumber", "USD"),
-    "Homebuilders ETF": ("Lumber", "USD"),
-    "Homebuilders ETF 2 (XHB)": ("Lumber", "USD"),
-    "Mortgage REIT ETF (REM)": (None, "USD"),
-    "Timber ETF (WOOD)": ("Lumber", "CAD"),
-    "Global Timber (CUT)": ("Lumber", "CAD"),
+    "Global Real Estate": (None, "USD"),
+    "Homebuilders": ("Lumber", "USD"),
+    "Homebuilders 2": ("Lumber", "USD"),
+    "Mortgage REITs": (None, "USD"),
+
+    # ---- Materials ----
+    "Materials (S&P)": ("Copper (COMEX)", "AUD"),
+    "Global Materials": ("Copper (COMEX)", "AUD"),
+    "Timber & Forestry": ("Lumber", "CAD"),
+    "Timber 2": ("Lumber", "CAD"),
+
+    # ---- Communications ----
     "Communication Services": (None, "USD"),
     "Telecom & Media": (None, "USD"),
     "Esports": (None, "USD"),
     "Video Gaming": (None, "USD"),
+
+    # ---- Utilities ----
     "Utilities (S&P)": ("Natural Gas", "USD"),
     "Utilities (VPU)": ("Natural Gas", "USD"),
     "Electric Grid": ("Copper (COMEX)", "USD"),
-    "Materials (S&P)": ("Copper (COMEX)", "AUD"),
-    "Global Materials": ("Copper (COMEX)", "AUD"),
-    "Timber": ("Lumber", "CAD"),
-    "Timber & Forestry": ("Lumber", "CAD"),
+
+    # ---- Country ETFs ----
     "Japan (EWJ)": ("WTI Crude Oil", "JPY"),
     "China (FXI)": ("Copper (COMEX)", "CNY"),
     "Brazil (EWZ)": ("Soybeans", "BRL"),
@@ -495,13 +534,24 @@ CONVERGENCE_MAP = {
     "China A (KBA)": ("Copper (COMEX)", "CNY"),
     "China (CNYA)": ("Copper (COMEX)", "CNY"),
 
-    # Add to CONVERGENCE_MAP (after the existing entries)
-"Lumber (PPI)": ("Lumber", "USD"),           # already linked via WOOD
-"Structural Steel (PPI)": ("Hot Rolled Coil Steel", "USD"),
-"Copper Wire (PPI)": ("Copper (COMEX)", "USD"),
-"Cass Freight Index": ("WTI Crude Oil", "USD"),
-"Farm Real Estate Value": ("Corn", "USD"),   # farmland → agriculture
-"Green Street Commercial Property Price Index": ("Lumber", "USD"),  # real estate → lumber
+    # ---- NEW: Commodity ETFs ----
+    "Broad Commodities": ("WTI Crude Oil", "USD"),
+    "Commodities (DJP)": ("WTI Crude Oil", "USD"),
+    "Oil (USO)": ("WTI Crude Oil", "USD"),
+    "Natural Gas (UNG)": ("Natural Gas", "USD"),
+    "Gold (GLD)": ("Gold", "USD"),
+    "Silver (SLV)": ("Silver", "USD"),
+    "Copper (CPER)": ("Copper (COMEX)", "USD"),
+    "Platinum (PPLT)": ("Platinum", "USD"),
+    "Palladium (PALL)": ("Palladium", "USD"),
+
+    # ---- FRED series mappings ----
+    "Lumber (PPI)": ("Lumber", "USD"),
+    "Structural Steel (PPI)": ("Hot Rolled Coil Steel", "USD"),
+    "Copper Wire (PPI)": ("Copper (COMEX)", "USD"),
+    "Cass Freight Index": ("WTI Crude Oil", "USD"),
+    "Farm Real Estate Value": ("Corn", "USD"),
+    "Green Street Commercial Property Price Index": ("Lumber", "USD"),
 }
 
 # ------------------------------------------------------------
@@ -560,7 +610,7 @@ FRED_SERIES = {
     "Truck Transportation PPI": "PCU484484",
     "Deep Sea Freight Transportation PPI": "PCU483111483111",
 
-    # ---- IMF Commodity Spot Prices (additional) ----
+    # ---- IMF Commodity Spot Prices ----
     "Gold (IMF)": "PGOLDUSDM",
     "Silver (IMF)": "PSILVERUSDM",
     "Copper (IMF)": "PCOPPUSDM",
