@@ -936,33 +936,40 @@ def recommendations():
 def get_fred():
     try:
         cache = load_cache()
+        # Get gold series from cache
         gold_key = 'hist_GC=F'
         if gold_key not in cache:
-            return jsonify({'error': 'Gold data missing'}), 500
-        gold_data = cache[gold_key]['data']
-        gold_index = cache[gold_key]['index']
-        gold_series = pd.Series(gold_data, index=pd.to_datetime(gold_index))
+            return jsonify({'error': 'Gold data not in cache'}), 500
+        gold_data = cache[gold_key]
+        gold_series = pd.Series(gold_data['data'], index=pd.to_datetime(gold_data['index']))
+        if gold_series.empty:
+            return jsonify({'error': 'Gold series empty'}), 500
 
         result = {}
         for name, series_id in FRED_SERIES.items():
             cache_key = f'hist_fred_{series_id}'
             if cache_key not in cache:
                 continue
-            fred_data = cache[cache_key]['data']
-            fred_index = cache[cache_key]['index']
-            if not fred_data or not fred_index:
+
+            fred_data = cache[cache_key]
+            # Reconstruct series
+            fred_series = pd.Series(fred_data['data'], index=pd.to_datetime(fred_data['index']))
+            if fred_series.empty:
                 continue
-            series = pd.Series(fred_data, index=pd.to_datetime(fred_index))
-            common = series.index.intersection(gold_series.index)
-            if len(common) < 5:
+
+            # Align with gold
+            common_dates = fred_series.index.intersection(gold_series.index)
+            if len(common_dates) < 5:
                 continue
-            asset = series.loc[common]
-            gold = gold_series.loc[common]
+
+            asset = fred_series.loc[common_dates]
+            gold = gold_series.loc[common_dates]
             ratio = asset / gold
             current_ratio = ratio.iloc[-1]
             mean_ratio = ratio.mean()
             if mean_ratio == 0:
                 continue
+
             deviation = (current_ratio - mean_ratio) / mean_ratio * 100
             result[name] = {
                 'current_ratio': float(current_ratio),
@@ -970,6 +977,7 @@ def get_fred():
                 'deviation': float(deviation),
                 'last_value': float(asset.iloc[-1]),
             }
+
         return jsonify(result)
     except Exception as e:
         print("FRED error:", traceback.format_exc())
@@ -983,6 +991,39 @@ def debug():
     cache = load_cache()
     keys = [k for k in cache.keys() if 'fred' in k or k == 'hist_GC=F']
     return jsonify({'cache_keys': keys[:20], 'total_keys': len(cache)})
+
+@app.route('/api/debug_fred')
+def debug_fred():
+    cache = load_cache()
+    gold_series = get_cached_historical('GC=F')
+    gold_len = len(gold_series) if gold_series is not None else 0
+    
+    result = {}
+    for name, series_id in FRED_SERIES.items():
+        cache_key = f'hist_fred_{series_id}'
+        has_key = cache_key in cache
+        if has_key:
+            # Try to reconstruct the series
+            series = get_cached_historical(cache_key.replace('hist_', ''))
+            series_len = len(series) if series is not None else 0
+            if series is not None and gold_series is not None:
+                common = series.index.intersection(gold_series.index)
+                common_len = len(common)
+            else:
+                common_len = 0
+            result[name] = {
+                'cache_key': cache_key,
+                'in_cache': has_key,
+                'series_len': series_len,
+                'gold_len': gold_len,
+                'common_len': common_len
+            }
+        else:
+            result[name] = {
+                'cache_key': cache_key,
+                'in_cache': False
+            }
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
