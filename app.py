@@ -936,7 +936,6 @@ def recommendations():
 def get_fred():
     try:
         cache = load_cache()
-        # Get gold series from cache
         gold_key = 'hist_GC=F'
         if gold_key not in cache:
             return jsonify({'error': 'Gold data not in cache'}), 500
@@ -945,6 +944,9 @@ def get_fred():
         if gold_series.empty:
             return jsonify({'error': 'Gold series empty'}), 500
 
+        # Resample gold to monthly (end of month)
+        gold_monthly = gold_series.resample('M').last().dropna()
+
         result = {}
         for name, series_id in FRED_SERIES.items():
             cache_key = f'hist_fred_{series_id}'
@@ -952,18 +954,20 @@ def get_fred():
                 continue
 
             fred_data = cache[cache_key]
-            # Reconstruct series
             fred_series = pd.Series(fred_data['data'], index=pd.to_datetime(fred_data['index']))
             if fred_series.empty:
                 continue
 
-            # Align with gold
-            common_dates = fred_series.index.intersection(gold_series.index)
+            # Resample FRED to monthly (end of month) to align with gold
+            fred_monthly = fred_series.resample('M').last().dropna()
+
+            # Intersect monthly indices
+            common_dates = fred_monthly.index.intersection(gold_monthly.index)
             if len(common_dates) < 5:
                 continue
 
-            asset = fred_series.loc[common_dates]
-            gold = gold_series.loc[common_dates]
+            asset = fred_monthly.loc[common_dates]
+            gold = gold_monthly.loc[common_dates]
             ratio = asset / gold
             current_ratio = ratio.iloc[-1]
             mean_ratio = ratio.mean()
