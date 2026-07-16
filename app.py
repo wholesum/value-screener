@@ -34,69 +34,49 @@ def save_cache(cache):
         pickle.dump(cache, f)
 
 def get_cached_historical(ticker):
-    """
-    Return weekly price series from cache.
-    Ensures data is a flat list of floats to avoid list/list division errors.
-    """
     cache = load_cache()
     key = f'hist_{ticker}'
     if key not in cache:
         return None
-
     raw_data = cache[key]['data']
     raw_index = cache[key]['index']
-
-    # --- FIX: flatten data if it's nested ---
     if isinstance(raw_data, list) and len(raw_data) > 0:
         if isinstance(raw_data[0], list):
-            # Flatten list of lists
             flat_data = [float(x) for sublist in raw_data for x in sublist]
         else:
             flat_data = [float(x) for x in raw_data]
     else:
         flat_data = [float(x) for x in raw_data] if raw_data else []
-
     if not flat_data:
         return None
-
     index = pd.to_datetime(raw_index)
     return pd.Series(flat_data, index=index)
 
 def get_gold_ratio(ticker):
-    """Compute gold ratio using cached data, and cache the result."""
     cache = load_cache()
     key = f'gold_ratio_{ticker}'
     if key in cache:
         return cache[key]
-
     gold_series = get_cached_historical('GC=F')
     if gold_series is None or gold_series.empty:
         return None
     asset_series = get_cached_historical(ticker)
     if asset_series is None or asset_series.empty:
         return None
-
     common_dates = asset_series.index.intersection(gold_series.index)
     if len(common_dates) < 5:
         return None
-
     asset_aligned = asset_series.loc[common_dates]
     gold_aligned = gold_series.loc[common_dates]
-
-    # ---- SAFE DIVISION ----
     ratio_series = asset_aligned / gold_aligned
     if ratio_series.empty:
         return None
-
     current_ratio = ratio_series.iloc[-1]
     historical_mean = ratio_series.mean()
-
-    # Ensure historical_mean is a scalar
     if isinstance(historical_mean, pd.Series):
         historical_mean = historical_mean.iloc[0]
     if historical_mean == 0:
         return None
-
     deviation = (current_ratio - historical_mean) / historical_mean * 100
     result = {
         'current_ratio': float(current_ratio),
@@ -107,11 +87,7 @@ def get_gold_ratio(ticker):
     save_cache(cache)
     return result
 
-# ------------------------------------------------------------
-# SENTIMENT – read from cache
-# ------------------------------------------------------------
 def get_etf_sentiment(ticker):
-    """Return (label, score) from cache."""
     cache = load_cache()
     key = f'sentiment_{ticker}'
     if key in cache:
@@ -694,10 +670,7 @@ def dashboard():
 
             gold_info = get_gold_ratio(etf_ticker)
             cheapness = gold_info['deviation'] if gold_info else None
-
-            # Get sentiment from cache
             sentiment_label, sentiment_score = get_etf_sentiment(etf_ticker)
-
             sectors.append({
                 'sector': sector_name,
                 'etf': etf_ticker,
@@ -720,17 +693,16 @@ def dashboard():
             currencies.append({'code': code, 'name': CURRENCY_NAMES.get(code, code), 'rate_usd': rate, 'cheapness': cheapness})
         currencies.sort(key=lambda x: x['cheapness'] if x['cheapness'] is not None else 999)
 
-        # ---- FIX: Use cached gold price instead of live API ----
+        # Commodities: use cached gold price
         commodities = []
         gold_series = get_cached_historical('GC=F')
         if gold_series is not None and not gold_series.empty:
-            gold_price = gold_series.iloc[-1]  # last weekly close
+            gold_price = gold_series.iloc[-1]
             for name, ticker in COMMODITY_TICKERS.items():
                 try:
-                    # Get latest price from cache
                     series = get_cached_historical(ticker)
                     if series is not None and not series.empty:
-                        price = series.iloc[-1]  # last price
+                        price = series.iloc[-1]
                         ratio = price / gold_price if gold_price else None
                         gold_info = get_gold_ratio(ticker)
                         cheapness = gold_info['deviation'] if gold_info else None
@@ -742,15 +714,12 @@ def dashboard():
                         })
                 except:
                     pass
-        # (If gold_series is missing, commodities remains empty – but we already have gold in cache)
-
         commodities.sort(key=lambda x: x['cheapness'] if x['cheapness'] is not None else 999)
 
         return jsonify({'sectors': sectors, 'currencies': currencies, 'commodities': commodities})
     except Exception as e:
         print("Dashboard error:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/search')
 def search():
@@ -960,24 +929,30 @@ def recommendations():
         print("Recommendations error:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
+# ------------------------------------------------------------
+# FIXED FRED ENDPOINT (direct cache reading)
+# ------------------------------------------------------------
 @app.route('/api/fred')
 def get_fred():
     try:
         cache = load_cache()
-        gold_series = get_cached_historical('GC=F')
-        if gold_series is None or gold_series.empty:
+        gold_key = 'hist_GC=F'
+        if gold_key not in cache:
             return jsonify({'error': 'Gold data missing'}), 500
+        gold_data = cache[gold_key]['data']
+        gold_index = cache[gold_key]['index']
+        gold_series = pd.Series(gold_data, index=pd.to_datetime(gold_index))
 
         result = {}
-        for key, series_id in FRED_SERIES.items():
-            # The cached key for FRED data is 'hist_fred_{series_id}'
+        for name, series_id in FRED_SERIES.items():
             cache_key = f'hist_fred_{series_id}'
             if cache_key not in cache:
                 continue
-            # Reconstruct the series from cache
-            series = get_cached_historical(cache_key.replace('hist_', ''))
-            if series is None or series.empty:
+            fred_data = cache[cache_key]['data']
+            fred_index = cache[cache_key]['index']
+            if not fred_data or not fred_index:
                 continue
+            series = pd.Series(fred_data, index=pd.to_datetime(fred_index))
             common = series.index.intersection(gold_series.index)
             if len(common) < 5:
                 continue
@@ -989,7 +964,7 @@ def get_fred():
             if mean_ratio == 0:
                 continue
             deviation = (current_ratio - mean_ratio) / mean_ratio * 100
-            result[key] = {
+            result[name] = {
                 'current_ratio': float(current_ratio),
                 'mean_ratio': float(mean_ratio),
                 'deviation': float(deviation),
@@ -999,6 +974,15 @@ def get_fred():
     except Exception as e:
         print("FRED error:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
+# ------------------------------------------------------------
+# DEBUG ROUTE (optional) – to check cache keys
+# ------------------------------------------------------------
+@app.route('/api/debug')
+def debug():
+    cache = load_cache()
+    keys = [k for k in cache.keys() if 'fred' in k or k == 'hist_GC=F']
+    return jsonify({'cache_keys': keys[:20], 'total_keys': len(cache)})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
