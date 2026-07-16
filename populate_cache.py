@@ -15,8 +15,25 @@ FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
 # ------------------------------------------------------------
 # FULL DICTIONARIES – copy exactly as in app.py
 # ------------------------------------------------------------
+import os
+import pickle
+import yfinance as yf
+import pandas as pd
+import requests
+
+CACHE_FILE = 'cache.pkl'
+
+# ------------------------------------------------------------
+# FRED API CONFIGURATION
+# ------------------------------------------------------------
+FRED_API_KEY = 'a5eb5a40ad542ffb9d13f6fb6269ca08'
+FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
+
+# ------------------------------------------------------------
+# FULL DICTIONARIES – now cleaned and expanded
+# ------------------------------------------------------------
 SECTOR_ETFS = {
-    # ---- Existing sectors (unchanged) ----
+    # ---- Energy (existing) ----
     "Energy (S&P)": "XLE",
     "Oil Exploration (E&P)": "XOP",
     "Oil Services": "OIH",
@@ -25,6 +42,8 @@ SECTOR_ETFS = {
     "Natural Gas Producers": "FCG",
     "Refiners": "CRAK",
     "Uranium": "URA",
+
+    # ---- Metals & Mining (existing) ----
     "Metals & Mining": "XME",
     "Global Miners": "PICK",
     "Copper Miners": "COPX",
@@ -38,6 +57,8 @@ SECTOR_ETFS = {
     "Battery Materials": "BATT",
     "Steel": "SLX",
     "Agriculture/Fertilizer": "MOO",
+
+    # ---- Technology (unchanged) ----
     "Technology (S&P)": "XLK",
     "Semiconductors (SMH)": "SMH",
     "Semiconductors (SOXX)": "SOXX",
@@ -51,17 +72,23 @@ SECTOR_ETFS = {
     "Internet (FDN)": "FDN",
     "Software (XSW)": "XSW",
     "Cybersecurity (CIBR)": "CIBR",
+
+    # ---- Financials (unchanged) ----
     "Financials (S&P)": "XLF",
     "Regional Banks": "KRE",
     "Banks": "KBE",
     "Insurance": "KIE",
     "Brokers": "IAI",
     "Financial Services": "IYG",
+
+    # ---- Healthcare (unchanged) ----
     "Healthcare (S&P)": "XLV",
     "Biotech (equal weight)": "XBI",
     "Biotech (IBB)": "IBB",
     "Medical Devices": "IHI",
     "Pharmaceuticals": "PJP",
+
+    # ---- Industrials (unchanged) ----
     "Industrials (S&P)": "XLI",
     "Infrastructure": "PAVE",
     "Aerospace & Defense": "ITA",
@@ -70,6 +97,8 @@ SECTOR_ETFS = {
     "Transportation": "IYT",
     "Airlines": "JETS",
     "Autos": "CARZ",
+
+    # ---- Consumer (unchanged) ----
     "Consumer Discretionary (S&P)": "XLY",
     "Consumer Staples (S&P)": "XLP",
     "Retail": "XRT",
@@ -77,23 +106,34 @@ SECTOR_ETFS = {
     "Leisure & Entertainment": "PEJ",
     "Hotels": "BEDZ",
     "Travel": "AWAY",
+
+    # ---- Real Estate (consolidated) ----
     "Real Estate (S&P)": "XLRE",
-    "REITs (VNQ)": "VNQ",
-    "U.S. REITs": "IYR",
+    "US REITs": "VNQ",           # merged VNQ and IYR? Keep VNQ as main
     "Residential REITs": "REZ",
+    "Global Real Estate": "REET",
+    "Homebuilders": "ITB",
+    "Homebuilders 2": "XHB",
+    "Mortgage REITs": "REM",
+
+    # ---- Materials (added) ----
+    "Materials (S&P)": "XLB",
+    "Global Materials": "MXI",
+    "Timber & Forestry": "WOOD",  # merged WOOD and CUT
+    "Timber 2": "CUT",           # keep CUT separately if desired
+
+    # ---- Communication (unchanged) ----
     "Communication Services": "XLC",
     "Telecom & Media": "VOX",
     "Esports": "HERO",
     "Video Gaming": "ESPO",
+
+    # ---- Utilities (unchanged) ----
     "Utilities (S&P)": "XLU",
     "Utilities (VPU)": "VPU",
     "Electric Grid": "GRID",
-    "Materials (S&P)": "XLB",
-    "Global Materials": "MXI",
-    "Timber": "WOOD",
-    "Timber & Forestry": "CUT",
 
-    # ---- Foreign Country ETFs ----
+    # ---- Foreign Country ETFs (unchanged) ----
     "Japan (EWJ)": "EWJ",
     "China (FXI)": "FXI",
     "Brazil (EWZ)": "EWZ",
@@ -103,18 +143,7 @@ SECTOR_ETFS = {
     "Europe (VGK)": "VGK",
     "Asia-Pacific (VPL)": "VPL",
 
-    # ---- Real Estate ETFs ----
-    "US Real Estate (VNQ)": "VNQ",
-    "Global Real Estate (REET)": "REET",
-    "Dow Jones REIT (IYR)": "IYR",
-    "Schwab REIT (SCHH)": "SCHH",
-    "Homebuilders ETF": "ITB",
-    "Homebuilders ETF 2 (XHB)": "XHB",
-    "Mortgage REIT ETF (REM)": "REM",
-    "Timber ETF (WOOD)": "WOOD",
-    "Global Timber (CUT)": "CUT",
-
-    # ---- Additional Country ETFs ----
+    # ---- Additional Country ETFs (unchanged) ----
     "UK (EWU)": "EWU",
     "Switzerland (EWL)": "EWL",
     "Canada (EWC)": "EWC",
@@ -147,7 +176,19 @@ SECTOR_ETFS = {
     "Eurozone (EZU)": "EZU",
     "China A (KBA)": "KBA",
     "China (CNYA)": "CNYA",
+
+    # ---- NEW Commodity ETFs (added) ----
+    "Broad Commodities": "DBC",
+    "Commodities (DJP)": "DJP",
+    "Oil (USO)": "USO",
+    "Natural Gas (UNG)": "UNG",
+    "Gold (GLD)": "GLD",
+    "Silver (SLV)": "SLV",
+    "Copper (CPER)": "CPER",
+    "Platinum (PPLT)": "PPLT",
+    "Palladium (PALL)": "PALL",
 }
+
 
 CURRENCY_NAMES = {
     "USD": "US Dollar",
@@ -217,10 +258,7 @@ COMMODITY_TICKERS = {
     "Palladium": "PA=F",
     "Copper (COMEX)": "HG=F",
     "Aluminum": "ALI=F",
-    "Nickel": "NICKEL=F",
-    "Zinc": "ZINC=F",
-    "Lead": "LEAD=F",
-    "Tin": "TIN=F",
+    # Removed: Nickel, Zinc, Lead, Tin (delisted)
     "Hot Rolled Coil Steel": "HRC=F",
     "Iron Ore 62%": "TIO=F",
     "WTI Crude Oil": "CL=F",
@@ -228,11 +266,11 @@ COMMODITY_TICKERS = {
     "Natural Gas": "NG=F",
     "Heating Oil": "HO=F",
     "RBOB Gasoline": "RB=F",
-    "Low Sulfur Gasoil": "QS=F",
+    # Removed: Low Sulfur Gasoil (QS=F) – delisted
     "Corn": "ZC=F",
     "Wheat (Chicago)": "ZW=F",
     "Kansas Wheat": "KE=F",
-    "Minneapolis Wheat": "MWE=F",
+    # Removed: Minneapolis Wheat (MWE=F) – delisted
     "Soybeans": "ZS=F",
     "Soybean Meal": "ZM=F",
     "Soybean Oil": "ZL=F",
@@ -332,7 +370,7 @@ FRED_SERIES = {
 }
 
 # ------------------------------------------------------------
-# DOWNLOAD HISTORICAL PRICES (with fallback periods)
+# DOWNLOAD & CACHE (unchanged)
 # ------------------------------------------------------------
 def get_historical(ticker, periods=['max', '10y', '5y']):
     for period in periods:
@@ -349,6 +387,7 @@ def get_historical(ticker, periods=['max', '10y', '5y']):
             print(f"  {ticker} with {period} failed: {e}")
             continue
     return None
+
 
 # ------------------------------------------------------------
 # FRED DATA FETCHER
