@@ -221,7 +221,7 @@ function App() {
     h('div', { className: 'masthead', key: 'masthead' },
       h('div', null, h('div', { className: 'kicker' }, 'Global Macro Deep Value Screen'), h('h1', null, 'Value Desk')),
       h('div', { className: 'masthead-actions' },
-        h('div', { className: 'meta' }, 'Live ranking based on gold-adjusted historical deviation + analyst ratings'),
+        h('div', { className: 'meta' }, 'Live ranking based on gold-adjusted historical deviation'),
         h('button', { className: 'run', onClick: fetchAll, disabled: loading }, 'REFRESH ALL')
       )
     ),
@@ -303,7 +303,7 @@ function App() {
     convergenceData && convergenceData.length > 0 ? h('section', { className: 'block', key: 'convergence' },
       h('h2', { className: 'section-title' },
         '🔥 Convergence Recommendations ',
-        h('span', { className: 'num' }, '(sector + commodity + currency + analyst rating)')
+        h('span', { className: 'num' }, '(sector + commodity + currency)')
       ),
       h('p', { className: 'section-sub' },
         'Sectors where the underlying ETF, its primary commodity, and its primary currency are all undervalued vs gold. ' +
