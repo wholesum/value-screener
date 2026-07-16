@@ -209,7 +209,7 @@ SECTOR_ETFS = {
 
     # ---- Real Estate (consolidated) ----
     "Real Estate (S&P)": "XLRE",
-    "US REITs": "VNQ",           # VNQ is the main REIT ETF
+    "US REITs": "VNQ",
     "Residential REITs": "REZ",
     "Global Real Estate": "REET",
     "Homebuilders": "ITB",
@@ -219,8 +219,8 @@ SECTOR_ETFS = {
     # ---- Materials ----
     "Materials (S&P)": "XLB",
     "Global Materials": "MXI",
-    "Timber & Forestry": "WOOD",  # WOOD is the main timber ETF
-    "Timber 2": "CUT",           # Keep CUT if desired – already in the dict
+    "Timber & Forestry": "WOOD",
+    "Timber 2": "CUT",
 
     # ---- Communications ----
     "Communication Services": "XLC",
@@ -350,6 +350,8 @@ CURRENCY_NAMES = {
 
 CURRENCY_TICKERS = {code: code + "USD=X" if code != "USD" else "USDUSD=X" for code in CURRENCY_NAMES}
 
+CURRENCY_TICKERS = {code: code + "USD=X" if code != "USD" else "USDUSD=X" for code in CURRENCY_NAMES}
+
 COMMODITY_TICKERS = {
     "Gold": "GC=F",
     "Silver": "SI=F",
@@ -357,7 +359,6 @@ COMMODITY_TICKERS = {
     "Palladium": "PA=F",
     "Copper (COMEX)": "HG=F",
     "Aluminum": "ALI=F",
-    # Nickel, Zinc, Lead, Tin removed – delisted
     "Hot Rolled Coil Steel": "HRC=F",
     "Iron Ore 62%": "TIO=F",
     "WTI Crude Oil": "CL=F",
@@ -365,11 +366,9 @@ COMMODITY_TICKERS = {
     "Natural Gas": "NG=F",
     "Heating Oil": "HO=F",
     "RBOB Gasoline": "RB=F",
-    # Low Sulfur Gasoil (QS=F) removed – delisted
     "Corn": "ZC=F",
     "Wheat (Chicago)": "ZW=F",
     "Kansas Wheat": "KE=F",
-    # Minneapolis Wheat (MWE=F) removed – delisted
     "Soybeans": "ZS=F",
     "Soybean Meal": "ZM=F",
     "Soybean Oil": "ZL=F",
@@ -721,35 +720,37 @@ def dashboard():
             currencies.append({'code': code, 'name': CURRENCY_NAMES.get(code, code), 'rate_usd': rate, 'cheapness': cheapness})
         currencies.sort(key=lambda x: x['cheapness'] if x['cheapness'] is not None else 999)
 
+        # ---- FIX: Use cached gold price instead of live API ----
         commodities = []
-        try:
-            gold = yf.Ticker("GC=F")
-            gold_price = gold.info.get('regularMarketPrice')
-            if gold_price:
-                for name, ticker in COMMODITY_TICKERS.items():
-                    try:
-                        com = yf.Ticker(ticker)
-                        price = com.info.get('regularMarketPrice')
-                        if price:
-                            ratio = price / gold_price if gold_price else None
-                            gold_info = get_gold_ratio(ticker)
-                            cheapness = gold_info['deviation'] if gold_info else None
-                            commodities.append({
-                                'name': name,
-                                'price': price,
-                                'gold_ratio': ratio,
-                                'cheapness': cheapness
-                            })
-                    except:
-                        pass
-        except:
-            pass
+        gold_series = get_cached_historical('GC=F')
+        if gold_series is not None and not gold_series.empty:
+            gold_price = gold_series.iloc[-1]  # last weekly close
+            for name, ticker in COMMODITY_TICKERS.items():
+                try:
+                    # Get latest price from cache
+                    series = get_cached_historical(ticker)
+                    if series is not None and not series.empty:
+                        price = series.iloc[-1]  # last price
+                        ratio = price / gold_price if gold_price else None
+                        gold_info = get_gold_ratio(ticker)
+                        cheapness = gold_info['deviation'] if gold_info else None
+                        commodities.append({
+                            'name': name,
+                            'price': price,
+                            'gold_ratio': ratio,
+                            'cheapness': cheapness
+                        })
+                except:
+                    pass
+        # (If gold_series is missing, commodities remains empty – but we already have gold in cache)
+
         commodities.sort(key=lambda x: x['cheapness'] if x['cheapness'] is not None else 999)
 
         return jsonify({'sectors': sectors, 'currencies': currencies, 'commodities': commodities})
     except Exception as e:
         print("Dashboard error:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/search')
 def search():
