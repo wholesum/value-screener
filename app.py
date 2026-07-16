@@ -527,6 +527,47 @@ CONVERGENCE_MAP = {
     "Cass Freight Index": ("WTI Crude Oil", "USD"),
     "Farm Real Estate Value": ("Corn", "USD"),
     "Green Street Commercial Property Price Index": ("Lumber", "USD"),
+
+    # Add these to CONVERGENCE_MAP (after existing entries)
+"Lumber (PPI)": ("Lumber", "USD"),
+"Structural Steel (PPI)": ("Hot Rolled Coil Steel", "USD"),
+"Copper Wire (PPI)": ("Copper (COMEX)", "USD"),
+"Cass Freight Index": ("WTI Crude Oil", "USD"),
+"Farm Real Estate Value": ("Corn", "USD"),
+"Green Street Commercial Property Price Index": ("Lumber", "USD"),
+"All-Transactions HPI (US)": ("Lumber", "USD"),      # optional
+"S&P Case-Shiller National": ("Lumber", "USD"),      # optional
+"Commercial Real Estate Price Index": ("Lumber", "USD"), # optional
+"Steel Mill Products (PPI)": ("Hot Rolled Coil Steel", "USD"),
+"Aluminum (PPI)": ("Aluminum", "USD"),
+"Copper (PPI)": ("Copper (COMEX)", "USD"),
+"Nickel (PPI)": ("Nickel", "USD"),  # if you have a Nickel commodity
+"Zinc (PPI)": ("Zinc", "USD"),      # if you have a Zinc commodity
+"Lead (PPI)": ("Lead", "USD"),      # if you have a Lead commodity
+"Industrial Chemicals (PPI)": ("WTI Crude Oil", "USD"), # proxy
+"Petrochemicals (PPI)": ("WTI Crude Oil", "USD"),
+"Truck Transportation PPI": ("WTI Crude Oil", "USD"),
+"Deep Sea Freight Transportation PPI": ("WTI Crude Oil", "USD"),
+"Rail Freight Carloads": ("WTI Crude Oil", "USD"),
+"Henry Hub Gas (IMF)": ("Natural Gas", "USD"),
+"Brent Crude (IMF)": ("Brent Crude", "USD"),
+"WTI Crude (IMF)": ("WTI Crude Oil", "USD"),
+"Corn (IMF)": ("Corn", "USD"),
+"Wheat (IMF)": ("Wheat (Chicago)", "USD"),
+"Soybeans (IMF)": ("Soybeans", "USD"),
+"Cotton (IMF)": ("Cotton", "USD"),
+"Coffee (IMF)": ("Coffee", "USD"),
+"Cocoa (IMF)": ("Cocoa", "USD"),
+"Sugar (IMF)": ("Sugar #11", "USD"),
+"Iron Ore (IMF)": ("Iron Ore 62%", "USD"),
+"Aluminum (IMF)": ("Aluminum", "USD"),
+"Copper (IMF)": ("Copper (COMEX)", "USD"),
+"Nickel (IMF)": ("Nickel", "USD"),
+"Zinc (IMF)": ("Zinc", "USD"),
+"Lead (IMF)": ("Lead", "USD"),
+"Tin (IMF)": ("Tin", "USD"),
+"Coal (IMF)": ("Natural Gas", "USD"),  # proxy
+    
 }
 
 # ------------------------------------------------------------
@@ -944,8 +985,8 @@ def get_fred():
         if gold_series.empty:
             return jsonify({'error': 'Gold series empty'}), 500
 
-        # Resample gold to month start
-        gold_monthly = gold_series.resample('MS').last().dropna()
+        # Resample gold to monthly (end of month)
+        gold_monthly = gold_series.resample('M').last().dropna()
 
         result = {}
         for name, series_id in FRED_SERIES.items():
@@ -958,22 +999,25 @@ def get_fred():
             if fred_series.empty:
                 continue
 
-            # Resample FRED to month start
-            fred_monthly = fred_series.resample('MS').last().dropna()
-            if fred_monthly.empty:
+            # Resample FRED to monthly (end of month)
+            fred_monthly = fred_series.resample('M').last().dropna()
+
+            # Intersect monthly indices
+            common_dates = fred_monthly.index.intersection(gold_monthly.index)
+            if len(common_dates) < 5:
                 continue
 
-            # Intersect indices
-            common = fred_monthly.index.intersection(gold_monthly.index)
-            if len(common) < 5:
-                continue
-
-            asset = fred_monthly.loc[common]
-            gold = gold_monthly.loc[common]
+            asset = fred_monthly.loc[common_dates]
+            gold = gold_monthly.loc[common_dates]
             ratio = asset / gold
             current_ratio = ratio.iloc[-1]
             mean_ratio = ratio.mean()
             if mean_ratio == 0:
+                continue
+
+            # ---- FIX: skip nonsensical negative indexes ----
+            last_value = asset.iloc[-1]
+            if last_value <= 0 or current_ratio <= 0 or mean_ratio <= 0:
                 continue
 
             deviation = (current_ratio - mean_ratio) / mean_ratio * 100
@@ -981,14 +1025,13 @@ def get_fred():
                 'current_ratio': float(current_ratio),
                 'mean_ratio': float(mean_ratio),
                 'deviation': float(deviation),
-                'last_value': float(asset.iloc[-1]),
+                'last_value': float(last_value),
             }
 
         return jsonify(result)
     except Exception as e:
         print("FRED error:", traceback.format_exc())
         return jsonify({'error': str(e)}), 500
-
 # ------------------------------------------------------------
 # DEBUG ROUTE (optional) – to check cache keys
 # ------------------------------------------------------------
