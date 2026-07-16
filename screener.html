@@ -307,16 +307,16 @@ function App() {
       ),
       h('p', { className: 'section-sub' },
         'Sectors where the underlying ETF, its primary commodity, and its primary currency are all undervalued vs gold. ' +
-        'Combined Score = average cheapness + rating bonus (Strong Buy: +15, Buy: +10, Hold: 0, Sell: -10, Strong Sell: -15). Lower is better.'
+        'Combined Score = average cheapness. Lower is better.'
       ),
       h('table', { className: 'stock-table' },
         h('thead', null,
           h('tr', null,
             h('th', 'Sector'), h('th', 'ETF'), h('th', 'Combined Score'),
-            h('th', 'Avg Cheap%'), h('th', 'Rating Bonus'), h('th', 'Analyst Rating'),
+            h('th', 'Avg Cheap%'), h('th', 'Analyst Rating'),
             h('th', 'Commodity'), h('th', 'Commodity Cheap%'),
             h('th', 'Currency'), h('th', 'Currency Cheap%')
-          )
+            )
         ),
         h('tbody', null,
           convergenceData.map((row, i) => {
@@ -326,8 +326,6 @@ function App() {
               h('td', null, row.etf),
               h('td', { style: { fontWeight: 'bold', color: scoreColor } }, row.combined_score.toFixed(1) + '%'),
               h('td', null, row.convergence_score?.toFixed(1) ?? '—'),
-              h('td', null, row.rating_bonus !== undefined ? (row.rating_bonus > 0 ? '+' : '') + row.rating_bonus : '—'),
-              h('td', null, ratingBadge(row.analyst_rating || 'N/A')),
               h('td', null, row.commodity || '—'),
               h('td', null, row.commodity_cheapness?.toFixed(1) ?? '—'),
               h('td', null, row.currency || '—'),
