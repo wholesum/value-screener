@@ -944,8 +944,8 @@ def get_fred():
         if gold_series.empty:
             return jsonify({'error': 'Gold series empty'}), 500
 
-        # Resample gold to monthly (end of month)
-        gold_monthly = gold_series.resample('M').last().dropna()
+        # Resample gold to month start
+        gold_monthly = gold_series.resample('MS').last().dropna()
 
         result = {}
         for name, series_id in FRED_SERIES.items():
@@ -958,16 +958,18 @@ def get_fred():
             if fred_series.empty:
                 continue
 
-            # Resample FRED to monthly (end of month) to align with gold
-            fred_monthly = fred_series.resample('M').last().dropna()
-
-            # Intersect monthly indices
-            common_dates = fred_monthly.index.intersection(gold_monthly.index)
-            if len(common_dates) < 5:
+            # Resample FRED to month start
+            fred_monthly = fred_series.resample('MS').last().dropna()
+            if fred_monthly.empty:
                 continue
 
-            asset = fred_monthly.loc[common_dates]
-            gold = gold_monthly.loc[common_dates]
+            # Intersect indices
+            common = fred_monthly.index.intersection(gold_monthly.index)
+            if len(common) < 5:
+                continue
+
+            asset = fred_monthly.loc[common]
+            gold = gold_monthly.loc[common]
             ratio = asset / gold
             current_ratio = ratio.iloc[-1]
             mean_ratio = ratio.mean()
