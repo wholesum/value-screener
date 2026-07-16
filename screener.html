@@ -313,7 +313,7 @@ function App() {
         h('thead', null,
           h('tr', null,
             h('th', 'Sector'), h('th', 'ETF'), h('th', 'Combined Score'),
-            h('th', 'Avg Cheap%'), h('th', 'Analyst Rating'),
+            h('th', 'Avg Cheap%'), 
             h('th', 'Commodity'), h('th', 'Commodity Cheap%'),
             h('th', 'Currency'), h('th', 'Currency Cheap%')
             )
@@ -342,7 +342,7 @@ function App() {
       h('table', { className: 'stock-table' },
         h('thead', null, h('tr', null,
           h('th', 'Sector'), h('th', 'ETF'), h('th', 'Avg P/E'),
-          h('th', 'Analyst Rating'), h('th', '# Analysts'),
+          
           h('th', 'Cheapness')
         )),
         h('tbody', null,
@@ -351,8 +351,8 @@ function App() {
               h('td', null, s.sector),
               h('td', null, s.etf),
               h('td', null, s.avg_pe ?? '—'),
-              h('td', null, ratingBadge(s.analyst_rating || 'N/A')),
-              h('td', null, s.analysts ?? '—'),
+              
+              
               h('td', null, cheapnessBadge(s.cheapness))
             )
           )
