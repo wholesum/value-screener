@@ -6,7 +6,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    /* unchanged – keep your existing CSS */
     * { box-sizing: border-box; }
     :root {
       --bg: #15181B;
@@ -184,6 +183,40 @@ function App() {
     );
   };
 
+  // ---- Combine commodities and FRED into one table ----
+  const combinedAssets = [];
+  if (commodities) {
+    commodities.forEach(c => {
+      combinedAssets.push({
+        type: 'Commodity',
+        name: c.name,
+        price: c.price,
+        current_ratio: c.gold_ratio,
+        mean_ratio: null,  // not provided for commodities directly, but we can use c.gold_ratio if needed? Actually we don't have mean ratio for commodities from dashboard, only gold_ratio (current) and cheapness.
+        deviation: c.cheapness,
+        last_value: c.price,
+        gold_ratio: c.gold_ratio,
+        // We'll use price as last_value
+      });
+    });
+  }
+  if (fredData) {
+    Object.entries(fredData).forEach(([name, data]) => {
+      combinedAssets.push({
+        type: 'FRED',
+        name: name,
+        price: null,
+        current_ratio: data.current_ratio,
+        mean_ratio: data.mean_ratio,
+        deviation: data.deviation,
+        last_value: data.last_value,
+        gold_ratio: data.current_ratio,
+      });
+    });
+  }
+  // Sort by deviation (cheapest first)
+  combinedAssets.sort((a, b) => (a.deviation ?? 999) - (b.deviation ?? 999));
+
   const children = [
     h('div', { className: 'masthead', key: 'masthead' },
       h('div', null, h('div', { className: 'kicker' }, 'Global Macro Deep Value Screen'), h('h1', null, 'Value Desk')),
@@ -305,7 +338,7 @@ function App() {
       )
     ) : null,
 
-    // ---- Sectors ----
+    // ---- Sectors (with ratings) ----
     h('section', { className: 'block', key: 'sectors' },
       h('h2', { className: 'section-title' }, 'Sectors (Cheapest first) ', h('span', { className: 'num' }, 'vs. historical gold-ratio mean')),
       h('table', { className: 'stock-table' },
@@ -347,53 +380,37 @@ function App() {
       )
     ),
 
-    // ---- Commodities ----
-    h('section', { className: 'block', key: 'commodities' },
-      h('h2', { className: 'section-title' }, 'Commodities (Cheapest first) ', h('span', { className: 'num' }, 'vs. historical gold-ratio mean')),
+    // ---- Combined Commodities & FRED table ----
+    h('section', { className: 'block', key: 'combinedAssets' },
+      h('h2', { className: 'section-title' }, 'Commodities & FRED Data ', h('span', { className: 'num' }, '(cheapest first vs gold)')),
       h('table', { className: 'stock-table' },
-        h('thead', null, h('tr', null, h('th', 'Name'), h('th', 'Price'), h('th', 'Gold Ratio'), h('th', 'Cheapness'))),
+        h('thead', null,
+          h('tr', null,
+            h('th', 'Type'),
+            h('th', 'Name'),
+            h('th', 'Last Value'),
+            h('th', 'Gold Ratio'),
+            h('th', 'Mean Ratio'),
+            h('th', 'Cheapness')
+          )
+        ),
         h('tbody', null,
-          commodities.map((c, i) =>
+          combinedAssets.map((item, i) =>
             h('tr', { key: i },
-              h('td', null, c.name),
-              h('td', null, c.price ? '$' + c.price : '—'),
-              h('td', null, c.gold_ratio ? c.gold_ratio.toFixed(4) : '—'),
-              h('td', null, cheapnessBadge(c.cheapness))
+              h('td', null, h('span', { style: { fontWeight: 'bold', color: item.type === 'Commodity' ? 'var(--gold)' : 'var(--cheap-dim)' } }, item.type)),
+              h('td', null, item.name),
+              h('td', null, item.last_value !== undefined && item.last_value !== null ? (item.type === 'Commodity' ? '$' + item.last_value.toFixed(2) : item.last_value.toFixed(2)) : '—'),
+              h('td', null, item.gold_ratio !== undefined && item.gold_ratio !== null ? item.gold_ratio.toFixed(4) : '—'),
+              h('td', null, item.mean_ratio !== undefined && item.mean_ratio !== null ? item.mean_ratio.toFixed(4) : '—'),
+              h('td', null, cheapnessBadge(item.deviation))
             )
           )
         )
       )
     ),
 
-    // ---- FRED Economic Data (properly integrated) ----
-    fredData && Object.keys(fredData).length > 0 ? h('section', { className: 'block', key: 'fred' },
-      h('h2', { className: 'section-title' }, 'FRED Economic Data ', h('span', { className: 'num' }, '(cheapness vs gold)')),
-      h('table', { className: 'stock-table' },
-        h('thead', null,
-          h('tr', null,
-            h('th', 'Name'),
-            h('th', 'Last Value'),
-            h('th', 'Current Ratio'),
-            h('th', 'Mean Ratio'),
-            h('th', 'Cheapness')
-          )
-        ),
-        h('tbody', null,
-          Object.entries(fredData).map(([name, data]) =>
-            h('tr', { key: name },
-              h('td', null, name),
-              h('td', null, data.last_value.toFixed(2)),
-              h('td', null, data.current_ratio.toFixed(4)),
-              h('td', null, data.mean_ratio.toFixed(4)),
-              h('td', null, cheapnessBadge(data.deviation))
-            )
-          )
-        )
-      )
-    ) : null,
-
     h('div', { className: 'disclaimer', key: 'disc' },
-      'Cheapness = deviation from 5‑year average of price/gold ratio. Negative = cheaper. Analyst ratings from Yahoo Finance.'
+      'Cheapness = deviation from historical average of price/gold ratio. Negative = cheaper. Analyst ratings from Yahoo Finance.'
     )
   ];
 
